@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { overview, users } = require('../controllers/adminController');
+const { overview, users, updateUser, deleteUser } = require('../controllers/adminController');
 const { authRequired, adminOnly } = require('../middlewares/auth');
 
 const router = Router();
@@ -9,5 +9,7 @@ router.use(authRequired, adminOnly);
 
 router.get('/overview', overview);
 router.get('/users', users);
+router.put('/users/:id', updateUser);
+router.delete('/users/:id', deleteUser);
 
 module.exports = router;
