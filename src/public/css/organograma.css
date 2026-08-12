@@ -263,8 +263,8 @@
 }
 
 .org-card.highlight {
-  border-color: #38bdf8; /* azul claro no resultado da busca */
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4);
+  border-color: #f83842; /* cor de destaque do resultado da busca */
+  box-shadow: 0 0 0 3px rgba(248, 56, 56, 0.4);
 }
 
 .org-card .btn-toggle {
