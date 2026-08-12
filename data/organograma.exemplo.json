@@ -1,0 +1,56 @@
+{
+  "orgao": "Organização Exemplo LTDA",
+  "fonte": ["Documento hipotético de estrutura organizacional"],
+  "data_referencia": "Janeiro/2026",
+  "chefe_executivo": {
+    "nome": "Diretoria Geral",
+    "sigla": "DG",
+    "gestor": "Maria Exemplo da Silva",
+    "subordinados": [
+      {
+        "nome": "Diretoria Administrativa",
+        "sigla": "DADM",
+        "gestor": "João Fictício de Souza",
+        "subordinados": [
+          {
+            "nome": "Gerência de Recursos Humanos",
+            "sigla": "GRH",
+            "gestor": "Ana Hipotética Santos"
+          },
+          {
+            "nome": "Gerência Financeira",
+            "sigla": "GFIN",
+            "gestor": "VACANTE"
+          }
+        ]
+      },
+      {
+        "nome": "Diretoria de Tecnologia",
+        "sigla": "DTEC",
+        "gestor": "Carlos Modelo Pereira",
+        "subordinados": [
+          {
+            "nome": "Gerência de Sistemas",
+            "sigla": "GSIS",
+            "gestor": "Beatriz Amostra Lima"
+          },
+          {
+            "nome": "Gerência de Infraestrutura",
+            "sigla": "GINF",
+            "gestor": "NÃO INFORMADO"
+          }
+        ]
+      },
+      {
+        "categoria": "Unidades vinculadas",
+        "itens": [
+          {
+            "nome": "Fundação Exemplo de Cultura",
+            "sigla": "FEC",
+            "gestor": "Pedro Ilustrativo Costa"
+          }
+        ]
+      }
+    ]
+  }
+}
