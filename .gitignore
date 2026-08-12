@@ -1,0 +1,32 @@
+# Dependências
+node_modules/
+
+# ============================================
+# SEGREDOS — NUNCA COMMITAR
+# Dados reais (senhas, tokens, URLs de banco)
+# ficam SOMENTE no .env local.
+# O repositório só recebe o .env.example
+# com valores hipotéticos.
+# ============================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Sistema operacional
+Thumbs.db
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+
+# Build
+dist/
+build/
