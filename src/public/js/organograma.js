@@ -490,7 +490,10 @@ function buscar(termo) {
   const contador = document.getElementById('search-count');
 
   if (!busca) {
+    // busca limpa: volta ao padrão (tudo recolhido, só a raiz aberta)
     contador.textContent = '';
+    expanded.clear();
+    expanded.add(orgRoot.id);
     render();
     return;
   }
@@ -500,7 +503,9 @@ function buscar(termo) {
     if (alvo.includes(busca)) highlighted.add(n.id);
   });
 
-  // abre o caminho até cada resultado
+  // fecha tudo e abre SOMENTE o caminho até cada resultado
+  expanded.clear();
+  expanded.add(orgRoot.id);
   highlighted.forEach((id) => {
     let atual = porId.get(id)?._pai;
     while (atual) {
