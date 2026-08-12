@@ -25,16 +25,21 @@ com WhatsApp (EvolutionAPI) e n8n.
    ```bash
    npx prisma migrate dev
    ```
-4. Suba o servidor em modo desenvolvimento:
+4. Crie o usuário administrador inicial:
+   ```bash
+   npm run seed
+   ```
+   > Credenciais de desenvolvimento: `admin@conectaorg.com` / `admin123` (troque em produção)
+5. Suba o servidor em modo desenvolvimento:
    ```bash
    npm run dev
    ```
-5. Acesse http://localhost:3000
+6. Acesse http://localhost:3000
 
 ## Roadmap
 
 - [x] Fase 1 — Fundação (Express, Prisma, git, proteção de segredos)
-- [ ] Fase 2 — Autenticação (login com JWT + bcrypt)
+- [x] Fase 2 — Autenticação (login com JWT + bcrypt)
 - [ ] Fase 3 — Dashboard
 - [ ] Fase 4 — CRM (contatos)
 - [ ] Fase 5 — Tickets/atendimento
