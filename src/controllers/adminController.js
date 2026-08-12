@@ -16,4 +16,15 @@ async function overview(req, res) {
   });
 }
 
-module.exports = { overview };
+// GET /api/admin/users — lista todos os usuários do sistema (somente ADMIN)
+// Nunca retorna o hash da senha.
+async function users(req, res) {
+  const lista = await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    orderBy: [{ role: 'asc' }, { name: 'asc' }],
+  });
+
+  res.json(lista);
+}
+
+module.exports = { overview, users };
