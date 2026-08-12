@@ -555,11 +555,17 @@ function setScale(novo, anchorX, anchorY) {
   applyTransform();
 }
 
+// volta ao zoom normal e centraliza no card do topo (GAB/Prefeito)
 function centerTree() {
   scale = 1;
-  panX = Math.max(20, (viewport.clientWidth - canvas.offsetWidth) / 2);
-  panY = 20;
   applyTransform();
+  if (orgRoot && canvas.querySelector(`[data-card="${orgRoot.id}"]`)) {
+    centerOnNode(orgRoot.id);
+  } else {
+    panX = 20;
+    panY = 20;
+    applyTransform();
+  }
 }
 
 viewport.addEventListener(
