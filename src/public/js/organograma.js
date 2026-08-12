@@ -255,8 +255,22 @@ function abrirModalEdicao(id) {
       </div>
 
       <div class="actions">
+        ${
+          node._pai
+            ? '<button type="button" class="btn-danger-outline" id="edit-apagar">Apagar setor</button>'
+            : ''
+        }
+        <span class="spacer"></span>
         <button type="button" class="btn-secondary" id="edit-cancelar">Cancelar</button>
         <button type="button" class="btn-primary" id="edit-salvar">Salvar</button>
+      </div>
+
+      <div class="confirm-box" id="confirm-apagar" style="display:none">
+        <p id="confirm-texto"></p>
+        <div class="actions">
+          <button type="button" class="btn-secondary" id="confirm-nao">Cancelar</button>
+          <button type="button" class="btn-danger" id="confirm-sim">Sim, apagar</button>
+        </div>
       </div>
     </div>`;
 
@@ -306,6 +320,52 @@ function abrirModalEdicao(id) {
   };
 
   document.getElementById('edit-cancelar').onclick = fecharModal;
+
+  // ---- apagar setor (com confirmação) ----
+  const btnApagar = document.getElementById('edit-apagar');
+  if (btnApagar) {
+    const contarSubtree = (n) =>
+      1 + n.children.reduce((soma, filho) => soma + contarSubtree(filho), 0);
+
+    btnApagar.onclick = () => {
+      const subordinados = contarSubtree(node) - 1;
+      document.getElementById('confirm-texto').textContent =
+        `Tem certeza que deseja apagar "${node.nome}"?` +
+        (subordinados > 0
+          ? ` Isso também apagará ${subordinados} setor(es) subordinado(s).`
+          : '') +
+        ' Essa ação não pode ser desfeita.';
+      document.getElementById('confirm-apagar').style.display = 'block';
+      btnApagar.disabled = true;
+    };
+
+    document.getElementById('confirm-nao').onclick = () => {
+      document.getElementById('confirm-apagar').style.display = 'none';
+      btnApagar.disabled = false;
+    };
+
+    document.getElementById('confirm-sim').onclick = async () => {
+      const res = await apiFetch(`/api/organograma/${id}`, { method: 'DELETE' });
+      if (!res || !res.ok) {
+        const erro = res ? (await res.json()).error : 'Erro ao apagar.';
+        alert(erro || 'Erro ao apagar.');
+        return;
+      }
+
+      // remove a subárvore dos índices locais
+      const removerDosIndices = (n) => {
+        porId.delete(n.id);
+        expanded.delete(n.id);
+        highlighted.delete(n.id);
+        n.children.forEach(removerDosIndices);
+      };
+      removerDosIndices(node);
+      node._pai.children = node._pai.children.filter((f) => f !== node);
+
+      fecharModal();
+      render();
+    };
+  }
 
   document.getElementById('edit-salvar').onclick = async () => {
     const payload = {
