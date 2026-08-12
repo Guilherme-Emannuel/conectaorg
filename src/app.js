@@ -3,11 +3,12 @@ const path = require('path');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const organogramaRoutes = require('./routes/organogramaRoutes');
 
 const app = express();
 
-// Middlewares globais
-app.use(express.json());
+// Middlewares globais (limite maior por causa das fotos do organograma)
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Arquivos estáticos do frontend
@@ -21,5 +22,6 @@ app.get('/api/health', (req, res) => {
 // Rotas da API
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/organograma', organogramaRoutes);
 
 module.exports = app;
