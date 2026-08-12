@@ -193,7 +193,7 @@
 .org-card {
   position: relative;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid #1e3a8a; /* azul escuro */
   border-radius: var(--radius);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   width: 210px;
@@ -263,8 +263,8 @@
 }
 
 .org-card.highlight {
-  border-color: #f59e0b;
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+  border-color: #38bdf8; /* azul claro no resultado da busca */
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.4);
 }
 
 .org-card .btn-toggle {
