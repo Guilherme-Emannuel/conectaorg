@@ -69,9 +69,72 @@ function renderTree() {
   canvas.innerHTML = `<ul class="tree">${nodeHtml(orgRoot)}</ul>`;
 }
 
-// render() decide o modo de visualização (árvore por enquanto)
+// ---------- Modo lista (acordeão multinível) ----------
+const listContainer = document.getElementById('org-list');
+// no celular a lista é o modo inicial; no desktop, a árvore
+let modo = window.innerWidth < 768 ? 'list' : 'tree';
+
+function listNodeHtml(node) {
+  const temFilhos = node.children.length > 0;
+  const aberto = expanded.has(node.id) ? ' open' : '';
+  const destaque = highlighted.has(node.id) ? ' highlight' : '';
+  const detalhes = [
+    node.sigla ? `<span class="sigla-inline">${esc(node.sigla)}</span>` : '',
+    node.gestor ? esc(node.gestor) : '',
+  ]
+    .filter(Boolean)
+    .join(' — ');
+
+  return `
+    <details data-details="${node.id}"${aberto} ${temFilhos ? '' : 'class="leaf"'}>
+      <summary class="${destaque}" data-summary="${node.id}">
+        <span class="caret">▶</span>
+        ${avatarHtml(node, 'mini-avatar')}
+        <div class="info">
+          <div class="setor">${esc(node.nome)}</div>
+          ${detalhes ? `<div class="detalhe">${detalhes}</div>` : ''}
+        </div>
+      </summary>
+      ${temFilhos ? node.children.map(listNodeHtml).join('') : ''}
+    </details>`;
+}
+
+function renderList() {
+  listContainer.innerHTML = listNodeHtml(orgRoot);
+}
+
+// mantém o estado de expansão sincronizado com o acordeão
+document.getElementById('org-list').addEventListener('toggle', (event) => {
+  const id = Number(event.target.dataset.details);
+  if (!id) return;
+  if (event.target.open) {
+    expanded.add(id);
+  } else {
+    expanded.delete(id);
+  }
+}, true);
+
+function setModo(novo) {
+  modo = novo;
+  document.getElementById('mode-tree').classList.toggle('active', modo === 'tree');
+  document.getElementById('mode-list').classList.toggle('active', modo === 'list');
+  viewport.style.display = modo === 'tree' ? 'block' : 'none';
+  listContainer.style.display = modo === 'list' ? 'block' : 'none';
+  render();
+  if (modo === 'tree') centerTree();
+}
+
+document.getElementById('mode-tree').onclick = () => setModo('tree');
+document.getElementById('mode-list').onclick = () => setModo('list');
+
+// render() decide o modo de visualização
 function render() {
-  renderTree();
+  if (!orgRoot) return;
+  if (modo === 'tree') {
+    renderTree();
+  } else {
+    renderList();
+  }
 }
 
 // centraliza um card específico no viewport
@@ -107,6 +170,8 @@ canvas.addEventListener('click', (event) => {
 const toolbar = document.getElementById('org-toolbar');
 
 toolbar.innerHTML = `
+  <button class="btn-sm" id="mode-tree">🌳 Árvore</button>
+  <button class="btn-sm" id="mode-list">📋 Lista</button>
   <button class="btn-sm" id="expand-all">Expandir tudo</button>
   <button class="btn-sm" id="collapse-all">Recolher tudo</button>
   <span class="spacer"></span>
@@ -175,7 +240,14 @@ function buscar(termo) {
   render();
 
   const primeiro = highlighted.values().next().value;
-  if (primeiro !== undefined) centerOnNode(primeiro);
+  if (primeiro === undefined) return;
+  if (modo === 'tree') {
+    centerOnNode(primeiro);
+  } else {
+    listContainer
+      .querySelector(`[data-summary="${primeiro}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
 }
 
 let buscaTimer = null;
@@ -310,8 +382,7 @@ async function carregarOrganograma() {
   // Padrão: só a raiz expandida (primeiro nível visível, resto recolhido)
   expanded.clear();
   expanded.add(orgRoot.id);
-  render();
-  centerTree();
+  setModo(modo);
 }
 
 carregarOrganograma();
