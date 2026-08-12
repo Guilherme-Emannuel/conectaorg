@@ -213,8 +213,10 @@
           return;
         }
 
+        const salvo = await res.json();
         fecharModal();
         carregarUsuarios();
+        mostrarToast(`"${salvo.name}" foi atualizado com sucesso`);
       };
 
       overlay.classList.add('open');
@@ -248,6 +250,7 @@
 
         fecharModal();
         carregarUsuarios();
+        mostrarToast(`"${u.name}" foi excluído com sucesso`);
       };
 
       overlay.classList.add('open');
