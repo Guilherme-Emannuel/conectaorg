@@ -330,6 +330,42 @@ body {
   color: #16a34a;
 }
 
+.data-table .acoes {
+  white-space: nowrap;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.btn-sm:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-trash {
+  padding: 6px 10px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-trash:hover {
+  background: #fef2f2;
+  border-color: var(--danger);
+}
+
 /* ---------- Modal e botões (compartilhados) ---------- */
 .modal-overlay {
   position: fixed;

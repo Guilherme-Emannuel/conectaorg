@@ -39,7 +39,7 @@
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
-                  <tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>No sistema desde</th></tr>
+                  <tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>No sistema desde</th><th>Ações</th></tr>
                 </thead>
                 <tbody id="tabela-admins"></tbody>
               </table>
@@ -52,7 +52,7 @@
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
-                  <tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>No sistema desde</th></tr>
+                  <tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>No sistema desde</th><th>Ações</th></tr>
                 </thead>
                 <tbody id="tabela-viewers"></tbody>
               </table>
@@ -67,6 +67,8 @@
       </main>
     </div>
   </div>
+
+  <div class="modal-overlay" id="modal-overlay"></div>
 
   <script src="/js/auth.js"></script>
   <script src="/js/layout.js"></script>
@@ -104,11 +106,13 @@
       return div.innerHTML;
     }
 
+    let usuariosCache = [];
+
     async function carregarUsuarios() {
       const res = await apiFetch('/api/admin/users');
       if (!res || !res.ok) return;
 
-      const usuarios = await res.json();
+      usuariosCache = await res.json();
 
       const linha = (u) => {
         const admin = u.role === 'ADMIN';
@@ -120,18 +124,133 @@
             ${admin ? 'Administrador' : 'Visualizador'}
           </span></td>
           <td>${desde}</td>
+          <td class="acoes">
+            <button class="btn-sm" data-editar="${u.id}">Editar</button>
+            <button class="btn-trash" data-excluir="${u.id}" title="Excluir usuário">🗑️</button>
+          </td>
         </tr>`;
       };
 
-      const admins = usuarios.filter((u) => u.role === 'ADMIN');
-      const viewers = usuarios.filter((u) => u.role !== 'ADMIN');
+      const admins = usuariosCache.filter((u) => u.role === 'ADMIN');
+      const viewers = usuariosCache.filter((u) => u.role !== 'ADMIN');
 
       document.getElementById('tabela-admins').innerHTML =
         admins.map(linha).join('') ||
-        '<tr><td colspan="4" class="muted">Nenhum administrador cadastrado.</td></tr>';
+        '<tr><td colspan="5" class="muted">Nenhum administrador cadastrado.</td></tr>';
       document.getElementById('tabela-viewers').innerHTML =
         viewers.map(linha).join('') ||
-        '<tr><td colspan="4" class="muted">Nenhum visualizador cadastrado.</td></tr>';
+        '<tr><td colspan="5" class="muted">Nenhum visualizador cadastrado.</td></tr>';
+    }
+
+    // ---- ações das tabelas (editar / excluir) ----
+    const overlay = document.getElementById('modal-overlay');
+
+    document.addEventListener('click', (event) => {
+      const editar = event.target.closest('[data-editar]');
+      if (editar) abrirEdicao(Number(editar.dataset.editar));
+      const excluir = event.target.closest('[data-excluir]');
+      if (excluir) abrirExclusao(Number(excluir.dataset.excluir));
+    });
+
+    function fecharModal() {
+      overlay.classList.remove('open');
+      overlay.innerHTML = '';
+    }
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) fecharModal();
+    });
+
+    function abrirEdicao(id) {
+      const u = usuariosCache.find((x) => x.id === id);
+      if (!u) return;
+
+      overlay.innerHTML = `
+        <div class="modal">
+          <h3>Editar usuário</h3>
+          <div class="field">
+            <label for="edit-nome">Nome</label>
+            <input id="edit-nome" value="${esc(u.name)}">
+          </div>
+          <div class="field">
+            <label for="edit-email">E-mail</label>
+            <input type="email" id="edit-email" value="${esc(u.email)}">
+          </div>
+          <div class="field">
+            <label for="edit-role">Papel</label>
+            <select id="edit-role">
+              <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Administrador</option>
+              <option value="AGENT" ${u.role !== 'ADMIN' ? 'selected' : ''}>Visualizador</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="edit-senha">Nova senha</label>
+            <input type="password" id="edit-senha" placeholder="Deixe vazio para manter a atual">
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="edit-cancelar">Cancelar</button>
+            <button type="button" class="btn-primary" id="edit-salvar">Salvar</button>
+          </div>
+        </div>`;
+
+      document.getElementById('edit-cancelar').onclick = fecharModal;
+      document.getElementById('edit-salvar').onclick = async () => {
+        const payload = {
+          name: document.getElementById('edit-nome').value,
+          email: document.getElementById('edit-email').value,
+          role: document.getElementById('edit-role').value,
+        };
+        const senha = document.getElementById('edit-senha').value;
+        if (senha) payload.password = senha;
+
+        const res = await apiFetch(`/api/admin/users/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+
+        if (!res || !res.ok) {
+          alert(res ? (await res.json()).error : 'Erro ao salvar.');
+          return;
+        }
+
+        fecharModal();
+        carregarUsuarios();
+      };
+
+      overlay.classList.add('open');
+    }
+
+    function abrirExclusao(id) {
+      const u = usuariosCache.find((x) => x.id === id);
+      if (!u) return;
+
+      overlay.innerHTML = `
+        <div class="modal">
+          <h3>Excluir usuário</h3>
+          <div class="confirm-box">
+            <p>Tem certeza que deseja excluir "${esc(u.name)}" (${esc(u.email)})?
+            A pessoa perderá o acesso ao sistema. Essa ação não pode ser desfeita.</p>
+            <div class="actions">
+              <button type="button" class="btn-secondary" id="del-cancelar">Cancelar</button>
+              <button type="button" class="btn-danger" id="del-confirmar">Sim, excluir</button>
+            </div>
+          </div>
+        </div>`;
+
+      document.getElementById('del-cancelar').onclick = fecharModal;
+      document.getElementById('del-confirmar').onclick = async () => {
+        const res = await apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+
+        if (!res || !res.ok) {
+          alert(res ? (await res.json()).error : 'Erro ao excluir.');
+          return;
+        }
+
+        fecharModal();
+        carregarUsuarios();
+      };
+
+      overlay.classList.add('open');
     }
   </script>
 </body>
