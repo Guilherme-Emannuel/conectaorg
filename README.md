@@ -30,10 +30,14 @@ com WhatsApp (EvolutionAPI) e n8n.
    npm run seed
    ```
    > As credenciais vêm das variáveis `ADMIN_*` do `.env`
-5. Importe o organograma para o banco:
+5. Prepare os dados do organograma e importe para o banco:
    ```bash
+   copy data\organograma.exemplo.json data\organograma.json
    npm run import:organograma
    ```
+   > `data/organograma.json` está no `.gitignore`: os dados reais da
+   > organização ficam somente na sua máquina. No repositório vai apenas
+   > o exemplo fictício.
    > Credenciais de desenvolvimento: `admin@conectaorg.com` / `admin123` (troque em produção)
 6. Suba o servidor em modo desenvolvimento:
    ```bash
