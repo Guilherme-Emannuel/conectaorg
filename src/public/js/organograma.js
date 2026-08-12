@@ -364,6 +364,7 @@ function abrirModalEdicao(id) {
 
       fecharModal();
       render();
+      mostrarToast(`"${node.nome}" foi apagado com sucesso`);
     };
   }
 
@@ -413,6 +414,7 @@ function abrirModalEdicao(id) {
     fecharModal();
     render();
     if (modo === 'tree') centerOnNode(node.id);
+    mostrarToast(`"${salvo.nome}" foi atualizado com sucesso`);
   };
 
   overlay.classList.add('open');
@@ -551,6 +553,7 @@ function abrirModalCriacao() {
     fecharModal();
     render();
     if (modo === 'tree') centerOnNode(criada.id);
+    mostrarToast(`"${criada.nome}" foi criado com sucesso`);
   };
 
   overlay.classList.add('open');
