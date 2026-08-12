@@ -25,3 +25,21 @@ enum Role {
   ADMIN
   AGENT
 }
+
+// Unidade do organograma (setor/órgão), em árvore via auto-relação
+model OrgUnit {
+  id          Int       @id @default(autoincrement())
+  nome        String
+  sigla       String?
+  gestor      String?
+  foto        String?   @db.Text // URL ou data-URI da foto do gestor
+  fotoVisivel Boolean   @default(true)
+  ordem       Int       @default(0)
+  parentId    Int?
+  parent      OrgUnit?  @relation("Hierarquia", fields: [parentId], references: [id], onDelete: Cascade)
+  children    OrgUnit[] @relation("Hierarquia")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("org_units")
+}
