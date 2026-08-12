@@ -85,4 +85,24 @@ async function update(req, res) {
   res.json(unidade);
 }
 
-module.exports = { tree, update };
+// DELETE /api/organograma/:id — apaga a unidade e todos os subordinados (somente ADMIN)
+async function remove(req, res) {
+  const id = Number(req.params.id);
+
+  const existe = await prisma.orgUnit.findUnique({ where: { id } });
+  if (!existe) {
+    return res.status(404).json({ error: 'Unidade não encontrada.' });
+  }
+  if (existe.parentId === null) {
+    return res.status(400).json({ error: 'O topo do organograma não pode ser apagado.' });
+  }
+
+  const antes = await prisma.orgUnit.count();
+  // o banco apaga os subordinados em cascata (onDelete: Cascade)
+  await prisma.orgUnit.delete({ where: { id } });
+  const depois = await prisma.orgUnit.count();
+
+  res.json({ removidas: antes - depois });
+}
+
+module.exports = { tree, update, remove };
