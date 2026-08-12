@@ -3,6 +3,8 @@
 
 let orgRoot = null; // raiz da árvore
 const expanded = new Set(); // ids com filhos visíveis
+const highlighted = new Set(); // ids destacados pela busca
+const porId = new Map(); // id -> nó (com referência ao pai em _pai)
 
 const canvas = document.getElementById('org-canvas');
 
@@ -44,8 +46,9 @@ function cardHtml(node) {
       </button>`
     : '';
 
+  const destaque = highlighted.has(node.id) ? ' highlight' : '';
   return `
-    <div class="org-card${node.fotoVisivel ? ' has-avatar' : ''}" data-card="${node.id}">
+    <div class="org-card${node.fotoVisivel ? ' has-avatar' : ''}${destaque}" data-card="${node.id}">
       ${avatarHtml(node, 'org-avatar')}
       <div class="setor">${esc(node.nome)}</div>
       ${node.sigla ? `<span class="sigla">${esc(node.sigla)}</span>` : ''}
@@ -66,13 +69,31 @@ function renderTree() {
   canvas.innerHTML = `<ul class="tree">${nodeHtml(orgRoot)}</ul>`;
 }
 
+// render() decide o modo de visualização (árvore por enquanto)
+function render() {
+  renderTree();
+}
+
+// centraliza um card específico no viewport
+function centerOnNode(id) {
+  const el = canvas.querySelector(`[data-card="${id}"]`);
+  if (!el) return;
+  const canvasRect = canvas.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const cx = (elRect.left - canvasRect.left + elRect.width / 2) / scale;
+  const cy = (elRect.top - canvasRect.top + elRect.height / 2) / scale;
+  panX = viewport.clientWidth / 2 - cx * scale;
+  panY = viewport.clientHeight / 3 - cy * scale;
+  applyTransform();
+}
+
 function toggleNode(id) {
   if (expanded.has(id)) {
     expanded.delete(id);
   } else {
     expanded.add(id);
   }
-  renderTree();
+  render();
 }
 
 canvas.addEventListener('click', (event) => {
@@ -80,6 +101,87 @@ canvas.addEventListener('click', (event) => {
   if (toggle) {
     toggleNode(Number(toggle.dataset.toggle));
   }
+});
+
+// ---------- Barra de ferramentas e busca ----------
+const toolbar = document.getElementById('org-toolbar');
+
+toolbar.innerHTML = `
+  <button class="btn-sm" id="expand-all">Expandir tudo</button>
+  <button class="btn-sm" id="collapse-all">Recolher tudo</button>
+  <span class="spacer"></span>
+  <div class="org-search">
+    <input type="search" id="org-search-input"
+      placeholder="Buscar setor, sigla ou gestor...">
+    <span id="search-count" class="muted" style="font-size:0.8rem"></span>
+  </div>
+`;
+
+function indexar(node, pai) {
+  node._pai = pai;
+  porId.set(node.id, node);
+  node.children.forEach((filho) => indexar(filho, node));
+}
+
+function expandirTudo() {
+  porId.forEach((n) => {
+    if (n.children.length) expanded.add(n.id);
+  });
+  render();
+}
+
+function recolherTudo() {
+  expanded.clear();
+  expanded.add(orgRoot.id);
+  render();
+}
+
+document.getElementById('expand-all').onclick = expandirTudo;
+document.getElementById('collapse-all').onclick = recolherTudo;
+
+function normalizar(texto) {
+  return (texto || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+function buscar(termo) {
+  highlighted.clear();
+  const busca = normalizar(termo.trim());
+  const contador = document.getElementById('search-count');
+
+  if (!busca) {
+    contador.textContent = '';
+    render();
+    return;
+  }
+
+  porId.forEach((n) => {
+    const alvo = normalizar(`${n.nome} ${n.sigla || ''} ${n.gestor || ''}`);
+    if (alvo.includes(busca)) highlighted.add(n.id);
+  });
+
+  // abre o caminho até cada resultado
+  highlighted.forEach((id) => {
+    let atual = porId.get(id)?._pai;
+    while (atual) {
+      expanded.add(atual.id);
+      atual = atual._pai;
+    }
+  });
+
+  contador.textContent = `${highlighted.size} resultado(s)`;
+  render();
+
+  const primeiro = highlighted.values().next().value;
+  if (primeiro !== undefined) centerOnNode(primeiro);
+}
+
+let buscaTimer = null;
+document.getElementById('org-search-input').addEventListener('input', (e) => {
+  clearTimeout(buscaTimer);
+  buscaTimer = setTimeout(() => buscar(e.target.value), 250);
 });
 
 // ---------- Zoom e panorâmica ----------
@@ -204,10 +306,11 @@ async function carregarOrganograma() {
   }
 
   orgRoot = await res.json();
+  indexar(orgRoot, null);
   // Padrão: só a raiz expandida (primeiro nível visível, resto recolhido)
   expanded.clear();
   expanded.add(orgRoot.id);
-  renderTree();
+  render();
   centerTree();
 }
 
