@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organograma — ConectaOrg</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="container">
+        <div class="card">
+          <h3>Organograma</h3>
+          <p class="muted">
+            Aguardando a estrutura organizacional (JSON). Assim que os dados
+            forem carregados, o organograma será exibido aqui.
+          </p>
+        </div>
+        <div id="org-tree"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>initLayout('organograma');</script>
+</body>
+</html>
