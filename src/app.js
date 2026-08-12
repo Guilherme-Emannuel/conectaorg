@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 
 const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -19,5 +20,6 @@ app.get('/api/health', (req, res) => {
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 module.exports = app;

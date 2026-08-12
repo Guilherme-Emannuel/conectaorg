@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administração — ConectaOrg</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="container">
+        <div id="denied" class="card" style="display:none">
+          <h3>Acesso restrito</h3>
+          <p class="muted">Esta área é exclusiva de administradores.</p>
+        </div>
+
+        <div id="admin-content" style="display:none">
+          <div class="stats-grid">
+            <div class="card">
+              <p class="muted">Usuários cadastrados</p>
+              <div class="stat-value" id="stat-users">—</div>
+            </div>
+            <div class="card">
+              <p class="muted">Administradores</p>
+              <div class="stat-value" id="stat-admins">—</div>
+            </div>
+            <div class="card">
+              <p class="muted">Servidor no ar há</p>
+              <div class="stat-value" id="stat-uptime">—</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Sistema</h3>
+            <p class="muted" id="system-info">Carregando...</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    initLayout('admin');
+
+    // A proteção real é do backend (403 para não-admin);
+    // aqui só decidimos o que mostrar.
+    apiFetch('/api/admin/overview').then(async (res) => {
+      if (!res) return;
+
+      if (res.status === 403) {
+        document.getElementById('denied').style.display = 'block';
+        return;
+      }
+
+      const data = await res.json();
+      document.getElementById('admin-content').style.display = 'block';
+      document.getElementById('stat-users').textContent = data.totalUsers;
+      document.getElementById('stat-admins').textContent = data.totalAdmins;
+
+      const min = Math.floor(data.uptimeSeconds / 60);
+      document.getElementById('stat-uptime').textContent =
+        min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`;
+
+      document.getElementById('system-info').textContent =
+        `Node ${data.nodeVersion} — ambiente: ${data.environment}`;
+    });
+  </script>
+</body>
+</html>
