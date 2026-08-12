@@ -14,6 +14,10 @@ node_modules/
 *.pem
 *.key
 
+# Dados reais da organização (nomes, estrutura) — NUNCA COMMITAR.
+# O repositório só recebe o organograma.exemplo.json fictício.
+data/organograma.json
+
 # Logs
 logs/
 *.log
