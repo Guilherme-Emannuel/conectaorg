@@ -1,0 +1,521 @@
+/* ---------- Página do organograma ---------- */
+.org-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.org-toolbar .spacer {
+  flex: 1;
+}
+
+.org-search {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.org-search input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  width: 230px;
+  outline: none;
+}
+
+.org-search input:focus {
+  border-color: var(--primary);
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.btn-sm:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.btn-sm.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* ---------- Viewport com zoom e pan ---------- */
+.org-viewport {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  height: calc(100vh - 200px);
+  min-height: 420px;
+  cursor: grab;
+  user-select: none;
+}
+
+.org-viewport.panning {
+  cursor: grabbing;
+}
+
+.org-canvas {
+  position: absolute;
+  transform-origin: 0 0;
+  padding: 40px;
+  white-space: nowrap;
+}
+
+.zoom-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+
+.zoom-controls .btn-sm {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+
+/* ---------- Árvore (conectores) ---------- */
+.tree,
+.tree ul {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 24px;
+  position: relative;
+  list-style: none;
+  margin: 0;
+}
+
+.tree {
+  padding-top: 0;
+}
+
+.tree li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 8px 0;
+  position: relative;
+}
+
+/* linha vertical descendo do pai */
+.tree li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 24px;
+  background: var(--border);
+}
+
+/* linha horizontal ligando irmãos */
+.tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 2px;
+  background: var(--border);
+  left: 0;
+  right: 0;
+}
+
+.tree li:first-child::after {
+  left: 50%;
+}
+
+.tree li:last-child::after {
+  right: 50%;
+}
+
+.tree li:only-child::after {
+  display: none;
+}
+
+.tree > li {
+  padding-top: 0;
+}
+
+.tree > li::before,
+.tree > li::after {
+  display: none;
+}
+
+/* linha vertical saindo do card pai para os filhos */
+.tree li > ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 24px;
+  background: var(--border);
+}
+
+/* ---------- Card da unidade ---------- */
+.org-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  width: 210px;
+  padding: 14px 12px 12px;
+  text-align: center;
+  white-space: normal;
+}
+
+.org-card.has-avatar {
+  margin-top: 26px;
+  padding-top: 32px;
+}
+
+.org-avatar {
+  position: absolute;
+  top: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 3px solid var(--surface);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  overflow: hidden;
+}
+
+.org-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.org-card .setor {
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+.org-card .sigla {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+  background: #eff6ff;
+  border-radius: 99px;
+  padding: 2px 10px;
+}
+
+.org-card .gestor {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.org-card .gestor.vacante {
+  color: var(--danger);
+  font-style: italic;
+}
+
+.org-card.highlight {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+}
+
+.org-card .btn-toggle {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 99px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.org-card .btn-toggle:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.org-card .btn-edit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.35;
+}
+
+.org-card .btn-edit:hover {
+  opacity: 1;
+}
+
+/* ---------- Modo lista (acordeão) ---------- */
+.org-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.org-list details {
+  margin-left: 0;
+}
+
+.org-list details details {
+  margin-left: 22px;
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+}
+
+.org-list summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.org-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.org-list summary:hover {
+  background: var(--bg);
+}
+
+.org-list .caret {
+  width: 14px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.org-list details[open] > summary .caret {
+  transform: rotate(90deg);
+}
+
+.org-list .leaf .caret {
+  visibility: hidden;
+}
+
+.org-list .mini-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.org-list .mini-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.org-list .info {
+  min-width: 0;
+}
+
+.org-list .info .setor {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.org-list .info .detalhe {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.org-list .info .detalhe .sigla-inline {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.org-list summary .btn-edit {
+  margin-left: auto;
+  border: none;
+  background: none;
+  cursor: pointer;
+  opacity: 0.35;
+}
+
+.org-list summary .btn-edit:hover {
+  opacity: 1;
+}
+
+.org-list summary.highlight {
+  background: #fef3c7;
+}
+
+/* ---------- Modal de edição ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h3 {
+  margin-bottom: 16px;
+}
+
+.modal .switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  font-size: 0.9rem;
+}
+
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch .slider {
+  position: absolute;
+  inset: 0;
+  background: #cbd5e1;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.switch .slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.15s;
+}
+
+.switch input:checked + .slider {
+  background: var(--primary);
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+.modal .actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.btn-secondary {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  padding: 10px 16px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.modal .foto-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.modal .foto-preview .org-avatar {
+  position: static;
+  transform: none;
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 768px) {
+  .org-viewport {
+    height: calc(100vh - 260px);
+  }
+
+  .org-search input {
+    width: 100%;
+  }
+}
