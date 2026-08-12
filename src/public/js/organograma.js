@@ -189,15 +189,15 @@ canvas.addEventListener('click', (event) => {
 const overlay = document.getElementById('modal-overlay');
 let fotoEditada; // undefined = não mexeu; null = removeu; string = nova foto
 
-// monta as opções do seletor de setor superior, com recuo por nível,
-// pulando o próprio setor e todos os seus subordinados (evitaria ciclo)
-function opcoesSetorSuperior(node) {
+// monta as opções de um seletor de setores, com recuo por nível.
+// excluir: setor cuja subárvore não deve aparecer (evita ciclos na edição)
+function opcoesSetores(excluir, selecionadoId) {
   const opcoes = [];
   const montar = (atual, nivel) => {
-    if (atual.id === node.id) return; // pula a própria subárvore
+    if (excluir && atual.id === excluir.id) return; // pula a subárvore excluída
     const recuo = ' '.repeat(nivel * 3);
     const rotulo = `${recuo}${atual.nome}${atual.sigla ? ` (${atual.sigla})` : ''}`;
-    const selecionado = node._pai?.id === atual.id ? ' selected' : '';
+    const selecionado = atual.id === selecionadoId ? ' selected' : '';
     opcoes.push(`<option value="${atual.id}"${selecionado}>${esc(rotulo)}</option>`);
     atual.children.forEach((filho) => montar(filho, nivel + 1));
   };
@@ -232,7 +232,7 @@ function abrirModalEdicao(id) {
         node._pai
           ? `<div class="field">
               <label for="edit-parent">Setor superior</label>
-              <select id="edit-parent">${opcoesSetorSuperior(node)}</select>
+              <select id="edit-parent">${opcoesSetores(node, node._pai.id)}</select>
             </div>`
           : ''
       }
@@ -445,6 +445,7 @@ toolbar.innerHTML = `
   <button class="btn-sm" id="mode-list">📋 Lista</button>
   <button class="btn-sm" id="expand-all">Expandir tudo</button>
   <button class="btn-sm" id="collapse-all">Recolher tudo</button>
+  ${isAdmin ? '<button class="btn-sm" id="btn-nova-unidade">➕ Criar nova unidade</button>' : ''}
   <span class="spacer"></span>
   <div class="org-search">
     <input type="search" id="org-search-input"
@@ -476,6 +477,84 @@ document.getElementById('expand-all').onclick = expandirTudo;
 document.getElementById('collapse-all').onclick = recolherTudo;
 document.getElementById('mode-tree').onclick = () => setModo('tree');
 document.getElementById('mode-list').onclick = () => setModo('list');
+const btnNovaUnidade = document.getElementById('btn-nova-unidade');
+if (btnNovaUnidade) btnNovaUnidade.onclick = () => abrirModalCriacao();
+
+// ---------- Modal de criação de unidade (somente ADMIN) ----------
+function abrirModalCriacao() {
+  if (!isAdmin || !orgRoot) return;
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>Criar nova unidade</h3>
+
+      <div class="field">
+        <label for="novo-nome">Nome do setor</label>
+        <input id="novo-nome" placeholder="Ex.: Coordenação de Projetos">
+      </div>
+      <div class="field">
+        <label for="novo-sigla">Sigla</label>
+        <input id="novo-sigla" placeholder="Ex.: CPROJ">
+      </div>
+      <div class="field">
+        <label for="novo-gestor">Nome do gestor</label>
+        <input id="novo-gestor" placeholder="Deixe vazio se ainda não houver">
+      </div>
+      <div class="field">
+        <label for="novo-parent">Setor superior</label>
+        <select id="novo-parent">${opcoesSetores(null, orgRoot.id)}</select>
+      </div>
+
+      <div class="switch-row">
+        <span>Exibir foto do gestor (bolinha no card)</span>
+        <label class="switch">
+          <input type="checkbox" id="novo-foto-visivel" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="novo-cancelar">Cancelar</button>
+        <button type="button" class="btn-primary" id="novo-salvar">Criar unidade</button>
+      </div>
+    </div>`;
+
+  document.getElementById('novo-cancelar').onclick = fecharModal;
+
+  document.getElementById('novo-salvar').onclick = async () => {
+    const res = await apiFetch('/api/organograma', {
+      method: 'POST',
+      body: JSON.stringify({
+        nome: document.getElementById('novo-nome').value,
+        sigla: document.getElementById('novo-sigla').value,
+        gestor: document.getElementById('novo-gestor').value,
+        parentId: Number(document.getElementById('novo-parent').value),
+        fotoVisivel: document.getElementById('novo-foto-visivel').checked,
+      }),
+    });
+
+    if (!res || !res.ok) {
+      const erro = res ? (await res.json()).error : 'Erro ao criar.';
+      alert(erro || 'Erro ao criar.');
+      return;
+    }
+
+    // insere a nova unidade na árvore local, sob o pai escolhido
+    const criada = await res.json();
+    criada.children = [];
+    const pai = porId.get(criada.parentId);
+    criada._pai = pai;
+    pai.children.push(criada);
+    porId.set(criada.id, criada);
+    expanded.add(pai.id);
+
+    fecharModal();
+    render();
+    if (modo === 'tree') centerOnNode(criada.id);
+  };
+
+  overlay.classList.add('open');
+}
 
 function normalizar(texto) {
   return (texto || '')
