@@ -24,7 +24,7 @@ async function tree(req, res) {
 // PUT /api/organograma/:id — edita uma unidade (somente ADMIN)
 async function update(req, res) {
   const id = Number(req.params.id);
-  const { nome, sigla, gestor, foto, fotoVisivel } = req.body;
+  const { nome, sigla, gestor, foto, fotoVisivel, parentId } = req.body;
 
   if (!nome || !nome.trim()) {
     return res.status(400).json({ error: 'O nome do setor é obrigatório.' });
@@ -35,6 +35,40 @@ async function update(req, res) {
     return res.status(404).json({ error: 'Unidade não encontrada.' });
   }
 
+  // Mudança de setor superior (reposicionamento na árvore)
+  let novoParentId = existe.parentId;
+  let novaOrdem = existe.ordem;
+
+  if (parentId !== undefined && Number(parentId) !== existe.parentId) {
+    const destinoId = Number(parentId);
+
+    if (existe.parentId === null) {
+      return res.status(400).json({ error: 'O topo do organograma não pode ser movido.' });
+    }
+    if (destinoId === id) {
+      return res.status(400).json({ error: 'Um setor não pode ficar abaixo de si mesmo.' });
+    }
+
+    const destino = await prisma.orgUnit.findUnique({ where: { id: destinoId } });
+    if (!destino) {
+      return res.status(400).json({ error: 'Setor superior não encontrado.' });
+    }
+
+    // impede ciclos: o destino não pode ser subordinado do setor movido
+    let atual = destino;
+    while (atual.parentId !== null) {
+      if (atual.parentId === id) {
+        return res
+          .status(400)
+          .json({ error: 'Não é possível mover um setor para dentro de um subordinado dele.' });
+      }
+      atual = await prisma.orgUnit.findUnique({ where: { id: atual.parentId } });
+    }
+
+    novoParentId = destinoId;
+    novaOrdem = await prisma.orgUnit.count({ where: { parentId: destinoId } });
+  }
+
   const unidade = await prisma.orgUnit.update({
     where: { id },
     data: {
@@ -43,6 +77,8 @@ async function update(req, res) {
       gestor: gestor?.trim() || null,
       foto: foto !== undefined ? foto || null : existe.foto,
       fotoVisivel: typeof fotoVisivel === 'boolean' ? fotoVisivel : existe.fotoVisivel,
+      parentId: novoParentId,
+      ordem: novaOrdem,
     },
   });
 
