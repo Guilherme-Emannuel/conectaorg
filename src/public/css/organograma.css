@@ -1,4 +1,24 @@
 /* ---------- Página do organograma ---------- */
+/* A árvore usa toda a área útil; o modo lista continua centralizado */
+.org-container {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 16px 24px 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.org-container .org-toolbar,
+.org-container .org-list {
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
 .org-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -58,8 +78,8 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  height: calc(100vh - 200px);
-  min-height: 420px;
+  flex: 1;
+  min-height: 320px;
   cursor: grab;
   user-select: none;
 }
@@ -511,10 +531,6 @@
 
 /* ---------- Responsivo ---------- */
 @media (max-width: 768px) {
-  .org-viewport {
-    height: calc(100vh - 260px);
-  }
-
   .org-search input {
     width: 100%;
   }
