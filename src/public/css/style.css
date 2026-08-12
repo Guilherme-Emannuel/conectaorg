@@ -67,17 +67,21 @@ body {
   margin-bottom: 6px;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: 1rem;
   outline: none;
+  background: var(--surface);
+  color: var(--text);
   transition: border-color 0.15s;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: var(--primary);
 }
 

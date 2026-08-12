@@ -189,6 +189,22 @@ canvas.addEventListener('click', (event) => {
 const overlay = document.getElementById('modal-overlay');
 let fotoEditada; // undefined = não mexeu; null = removeu; string = nova foto
 
+// monta as opções do seletor de setor superior, com recuo por nível,
+// pulando o próprio setor e todos os seus subordinados (evitaria ciclo)
+function opcoesSetorSuperior(node) {
+  const opcoes = [];
+  const montar = (atual, nivel) => {
+    if (atual.id === node.id) return; // pula a própria subárvore
+    const recuo = ' '.repeat(nivel * 3);
+    const rotulo = `${recuo}${atual.nome}${atual.sigla ? ` (${atual.sigla})` : ''}`;
+    const selecionado = node._pai?.id === atual.id ? ' selected' : '';
+    opcoes.push(`<option value="${atual.id}"${selecionado}>${esc(rotulo)}</option>`);
+    atual.children.forEach((filho) => montar(filho, nivel + 1));
+  };
+  montar(orgRoot, 0);
+  return opcoes.join('');
+}
+
 function abrirModalEdicao(id) {
   const node = porId.get(id);
   if (!node || !isAdmin) return;
@@ -211,6 +227,15 @@ function abrirModalEdicao(id) {
         <label for="edit-gestor">Nome do gestor</label>
         <input id="edit-gestor" value="${esc(node.gestor || '')}">
       </div>
+
+      ${
+        node._pai
+          ? `<div class="field">
+              <label for="edit-parent">Setor superior</label>
+              <select id="edit-parent">${opcoesSetorSuperior(node)}</select>
+            </div>`
+          : ''
+      }
 
       <div class="switch-row">
         <span>Exibir foto do gestor (bolinha no card)</span>
@@ -291,6 +316,9 @@ function abrirModalEdicao(id) {
     };
     if (fotoEditada !== undefined) payload.foto = fotoEditada;
 
+    const seletorPai = document.getElementById('edit-parent');
+    if (seletorPai) payload.parentId = Number(seletorPai.value);
+
     const res = await apiFetch(`/api/organograma/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
@@ -310,8 +338,21 @@ function abrirModalEdicao(id) {
       foto: salvo.foto,
       fotoVisivel: salvo.fotoVisivel,
     });
+
+    // se o setor superior mudou, move o nó na árvore local
+    if (node._pai && salvo.parentId !== node._pai.id) {
+      const novoPai = porId.get(salvo.parentId);
+      if (novoPai) {
+        node._pai.children = node._pai.children.filter((f) => f !== node);
+        novoPai.children.push(node);
+        node._pai = novoPai;
+        expanded.add(novoPai.id); // mostra o setor no novo lugar
+      }
+    }
+
     fecharModal();
     render();
+    if (modo === 'tree') centerOnNode(node.id);
   };
 
   overlay.classList.add('open');
