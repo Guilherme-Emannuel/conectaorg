@@ -29,12 +29,17 @@ com WhatsApp (EvolutionAPI) e n8n.
    ```bash
    npm run seed
    ```
+   > As credenciais vêm das variáveis `ADMIN_*` do `.env`
+5. Importe o organograma para o banco:
+   ```bash
+   npm run import:organograma
+   ```
    > Credenciais de desenvolvimento: `admin@conectaorg.com` / `admin123` (troque em produção)
-5. Suba o servidor em modo desenvolvimento:
+6. Suba o servidor em modo desenvolvimento:
    ```bash
    npm run dev
    ```
-6. Acesse http://localhost:3000
+7. Acesse http://localhost:3000
 
 ## Roadmap
 
