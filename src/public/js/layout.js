@@ -9,6 +9,28 @@ const MENU_ITEMS = [
   { id: 'admin', label: 'Administração', href: '/admin.html', icon: '⚙️', adminOnly: true },
 ];
 
+// Notificação flutuante (toast). Uso: mostrarToast('"X" foi atualizado com sucesso')
+function mostrarToast(mensagem, tipo = 'sucesso') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${tipo}`;
+  toast.textContent = mensagem;
+  container.appendChild(toast);
+
+  // some sozinha depois de alguns segundos
+  setTimeout(() => {
+    toast.classList.add('saindo');
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 3500);
+}
+
 function getCachedUser() {
   try {
     return JSON.parse(localStorage.getItem('user')) || {};
