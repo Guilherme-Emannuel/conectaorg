@@ -119,6 +119,119 @@ body {
   display: block;
 }
 
+/* ---------- Layout com menu lateral ---------- */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  background: #0f172a;
+  color: #cbd5e1;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-brand {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #fff;
+  padding: 20px 22px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.sidebar-nav {
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background 0.15s;
+}
+
+.nav-item:hover {
+  background: #1e293b;
+  color: #fff;
+}
+
+.nav-item.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.nav-item.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.nav-icon {
+  width: 20px;
+  text-align: center;
+}
+
+.badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 99px;
+  padding: 2px 8px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.card h3 {
+  margin-bottom: 8px;
+}
+
+.card .muted {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
 /* ---------- Dashboard (placeholder — evolui na Fase 3) ---------- */
 .topbar {
   background: var(--surface);

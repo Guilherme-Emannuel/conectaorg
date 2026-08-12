@@ -3,33 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard — ConectaOrg</title>
+  <title>Início — ConectaOrg</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <span class="brand">ConectaOrg</span>
-    <div class="user-area">
-      <span id="user-name"></span>
-      <button class="btn-logout" onclick="logout()">Sair</button>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="container">
+        <div class="card">
+          <h3>Bem-vindo ao ConectaOrg!</h3>
+          <p class="muted">
+            Use o menu lateral para navegar. Atendimentos e Usuários chegam nas
+            próximas fases.
+          </p>
+        </div>
+      </main>
     </div>
-  </header>
-
-  <main class="container">
-    <h2>Bem-vindo!</h2>
-    <p>Login funcionando. O dashboard completo chega na Fase 3.</p>
-  </main>
+  </div>
 
   <script src="/js/auth.js"></script>
-  <script>
-    // Mostra o nome do usuário logado, validando o token na API
-    apiFetch('/api/auth/me')
-      .then((res) => res && res.json())
-      .then((user) => {
-        if (user) {
-          document.getElementById('user-name').textContent = `${user.name} (${user.role})`;
-        }
-      });
-  </script>
+  <script src="/js/layout.js"></script>
+  <script>initLayout('dashboard');</script>
 </body>
 </html>
