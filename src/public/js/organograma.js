@@ -10,6 +10,21 @@ const canvas = document.getElementById('org-canvas');
 
 const SEM_GESTOR = ['VACANTE', 'NÃO INFORMADO', 'NÃO ADICIONADO'];
 
+const usuarioLogado = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('user')) || {};
+  } catch {
+    return {};
+  }
+})();
+const isAdmin = usuarioLogado.role === 'ADMIN';
+
+function editBtnHtml(id) {
+  return isAdmin
+    ? `<button class="btn-edit" data-edit="${id}" title="Editar setor">✏️</button>`
+    : '';
+}
+
 function esc(text) {
   const div = document.createElement('div');
   div.textContent = text ?? '';
@@ -49,6 +64,7 @@ function cardHtml(node) {
   const destaque = highlighted.has(node.id) ? ' highlight' : '';
   return `
     <div class="org-card${node.fotoVisivel ? ' has-avatar' : ''}${destaque}" data-card="${node.id}">
+      ${editBtnHtml(node.id)}
       ${avatarHtml(node, 'org-avatar')}
       <div class="setor">${esc(node.nome)}</div>
       ${node.sigla ? `<span class="sigla">${esc(node.sigla)}</span>` : ''}
@@ -94,6 +110,7 @@ function listNodeHtml(node) {
           <div class="setor">${esc(node.nome)}</div>
           ${detalhes ? `<div class="detalhe">${detalhes}</div>` : ''}
         </div>
+        ${editBtnHtml(node.id)}
       </summary>
       ${temFilhos ? node.children.map(listNodeHtml).join('') : ''}
     </details>`;
@@ -123,9 +140,6 @@ function setModo(novo) {
   render();
   if (modo === 'tree') centerTree();
 }
-
-document.getElementById('mode-tree').onclick = () => setModo('tree');
-document.getElementById('mode-list').onclick = () => setModo('list');
 
 // render() decide o modo de visualização
 function render() {
@@ -160,9 +174,165 @@ function toggleNode(id) {
 }
 
 canvas.addEventListener('click', (event) => {
+  const edit = event.target.closest('[data-edit]');
+  if (edit) {
+    abrirModalEdicao(Number(edit.dataset.edit));
+    return;
+  }
   const toggle = event.target.closest('[data-toggle]');
   if (toggle) {
     toggleNode(Number(toggle.dataset.toggle));
+  }
+});
+
+// ---------- Modal de edição (somente ADMIN) ----------
+const overlay = document.getElementById('modal-overlay');
+let fotoEditada; // undefined = não mexeu; null = removeu; string = nova foto
+
+function abrirModalEdicao(id) {
+  const node = porId.get(id);
+  if (!node || !isAdmin) return;
+
+  fotoEditada = undefined;
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>Editar setor</h3>
+
+      <div class="field">
+        <label for="edit-nome">Nome do setor</label>
+        <input id="edit-nome" value="${esc(node.nome)}">
+      </div>
+      <div class="field">
+        <label for="edit-sigla">Sigla</label>
+        <input id="edit-sigla" value="${esc(node.sigla || '')}">
+      </div>
+      <div class="field">
+        <label for="edit-gestor">Nome do gestor</label>
+        <input id="edit-gestor" value="${esc(node.gestor || '')}">
+      </div>
+
+      <div class="switch-row">
+        <span>Exibir foto do gestor (bolinha no card)</span>
+        <label class="switch">
+          <input type="checkbox" id="edit-foto-visivel" ${node.fotoVisivel ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="foto-preview">
+        <div class="org-avatar" id="edit-avatar-preview"></div>
+        <div>
+          <input type="file" id="edit-foto" accept="image/*" style="display:none">
+          <button type="button" class="btn-sm" id="edit-foto-btn">Enviar foto</button>
+          <button type="button" class="btn-sm" id="edit-foto-remover">Remover</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="edit-cancelar">Cancelar</button>
+        <button type="button" class="btn-primary" id="edit-salvar">Salvar</button>
+      </div>
+    </div>`;
+
+  const atualizarPreview = () => {
+    const foto = fotoEditada === undefined ? node.foto : fotoEditada;
+    document.getElementById('edit-avatar-preview').innerHTML = foto
+      ? `<img src="${esc(foto)}" alt="Foto do gestor">`
+      : esc(iniciais(document.getElementById('edit-gestor').value || node.nome));
+  };
+  atualizarPreview();
+
+  document.getElementById('edit-gestor').addEventListener('input', atualizarPreview);
+  document.getElementById('edit-foto-btn').onclick = () =>
+    document.getElementById('edit-foto').click();
+
+  // redimensiona a imagem para 128px antes de salvar (fica leve no banco)
+  document.getElementById('edit-foto').addEventListener('change', (event) => {
+    const arquivo = event.target.files[0];
+    if (!arquivo) return;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = 128;
+      c.height = 128;
+      const lado = Math.min(img.width, img.height);
+      c.getContext('2d').drawImage(
+        img,
+        (img.width - lado) / 2,
+        (img.height - lado) / 2,
+        lado,
+        lado,
+        0,
+        0,
+        128,
+        128
+      );
+      fotoEditada = c.toDataURL('image/jpeg', 0.85);
+      URL.revokeObjectURL(img.src);
+      atualizarPreview();
+    };
+    img.src = URL.createObjectURL(arquivo);
+  });
+
+  document.getElementById('edit-foto-remover').onclick = () => {
+    fotoEditada = null;
+    atualizarPreview();
+  };
+
+  document.getElementById('edit-cancelar').onclick = fecharModal;
+
+  document.getElementById('edit-salvar').onclick = async () => {
+    const payload = {
+      nome: document.getElementById('edit-nome').value,
+      sigla: document.getElementById('edit-sigla').value,
+      gestor: document.getElementById('edit-gestor').value,
+      fotoVisivel: document.getElementById('edit-foto-visivel').checked,
+    };
+    if (fotoEditada !== undefined) payload.foto = fotoEditada;
+
+    const res = await apiFetch(`/api/organograma/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+
+    if (!res || !res.ok) {
+      const erro = res ? (await res.json()).error : 'Erro ao salvar.';
+      alert(erro || 'Erro ao salvar.');
+      return;
+    }
+
+    const salvo = await res.json();
+    Object.assign(node, {
+      nome: salvo.nome,
+      sigla: salvo.sigla,
+      gestor: salvo.gestor,
+      foto: salvo.foto,
+      fotoVisivel: salvo.fotoVisivel,
+    });
+    fecharModal();
+    render();
+  };
+
+  overlay.classList.add('open');
+}
+
+function fecharModal() {
+  overlay.classList.remove('open');
+  overlay.innerHTML = '';
+}
+
+overlay.addEventListener('click', (event) => {
+  if (event.target === overlay) fecharModal();
+});
+
+// no modo lista, o lápis não deve abrir/fechar o acordeão
+listContainer.addEventListener('click', (event) => {
+  const edit = event.target.closest('[data-edit]');
+  if (edit) {
+    event.preventDefault();
+    event.stopPropagation();
+    abrirModalEdicao(Number(edit.dataset.edit));
   }
 });
 
@@ -203,6 +373,8 @@ function recolherTudo() {
 
 document.getElementById('expand-all').onclick = expandirTudo;
 document.getElementById('collapse-all').onclick = recolherTudo;
+document.getElementById('mode-tree').onclick = () => setModo('tree');
+document.getElementById('mode-list').onclick = () => setModo('list');
 
 function normalizar(texto) {
   return (texto || '')
