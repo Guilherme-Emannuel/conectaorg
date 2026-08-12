@@ -85,6 +85,38 @@ async function update(req, res) {
   res.json(unidade);
 }
 
+// POST /api/organograma — cria uma nova unidade (somente ADMIN)
+async function create(req, res) {
+  const { nome, sigla, gestor, parentId, fotoVisivel } = req.body;
+
+  if (!nome || !nome.trim()) {
+    return res.status(400).json({ error: 'O nome do setor é obrigatório.' });
+  }
+
+  const paiId = Number(parentId);
+  if (!paiId) {
+    return res.status(400).json({ error: 'Escolha o setor superior.' });
+  }
+
+  const pai = await prisma.orgUnit.findUnique({ where: { id: paiId } });
+  if (!pai) {
+    return res.status(400).json({ error: 'Setor superior não encontrado.' });
+  }
+
+  const unidade = await prisma.orgUnit.create({
+    data: {
+      nome: nome.trim(),
+      sigla: sigla?.trim() || null,
+      gestor: gestor?.trim() || null,
+      fotoVisivel: typeof fotoVisivel === 'boolean' ? fotoVisivel : true,
+      parentId: paiId,
+      ordem: await prisma.orgUnit.count({ where: { parentId: paiId } }),
+    },
+  });
+
+  res.status(201).json(unidade);
+}
+
 // DELETE /api/organograma/:id — apaga a unidade e todos os subordinados (somente ADMIN)
 async function remove(req, res) {
   const id = Number(req.params.id);
@@ -105,4 +137,4 @@ async function remove(req, res) {
   res.json({ removidas: antes - depois });
 }
 
-module.exports = { tree, update, remove };
+module.exports = { tree, update, create, remove };
