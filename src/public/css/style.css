@@ -280,3 +280,52 @@ body {
   margin: 32px auto;
   padding: 0 24px;
 }
+
+/* ---------- Tabela de dados ---------- */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border);
+}
+
+.data-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.role-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+.role-badge.admin {
+  background: #eff6ff;
+  color: var(--primary);
+}
+
+.role-badge.viewer {
+  background: #f0fdf4;
+  color: #16a34a;
+}

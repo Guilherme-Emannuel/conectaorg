@@ -34,6 +34,32 @@
           </div>
 
           <div class="card">
+            <h3>Administradores</h3>
+            <p class="muted">Contas com acesso total: editam o organograma e gerenciam o sistema.</p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>No sistema desde</th></tr>
+                </thead>
+                <tbody id="tabela-admins"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Visualizadores</h3>
+            <p class="muted">Contas com acesso de visualização: navegam pelo sistema, sem editar.</p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Nome</th><th>E-mail</th><th>Papel</th><th>No sistema desde</th></tr>
+                </thead>
+                <tbody id="tabela-viewers"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
             <h3>Sistema</h3>
             <p class="muted" id="system-info">Carregando...</p>
           </div>
@@ -68,7 +94,45 @@
 
       document.getElementById('system-info').textContent =
         `Node ${data.nodeVersion} — ambiente: ${data.environment}`;
+
+      carregarUsuarios();
     });
+
+    function esc(texto) {
+      const div = document.createElement('div');
+      div.textContent = texto ?? '';
+      return div.innerHTML;
+    }
+
+    async function carregarUsuarios() {
+      const res = await apiFetch('/api/admin/users');
+      if (!res || !res.ok) return;
+
+      const usuarios = await res.json();
+
+      const linha = (u) => {
+        const admin = u.role === 'ADMIN';
+        const desde = new Date(u.createdAt).toLocaleDateString('pt-BR');
+        return `<tr>
+          <td>${esc(u.name)}</td>
+          <td>${esc(u.email)}</td>
+          <td><span class="role-badge ${admin ? 'admin' : 'viewer'}">
+            ${admin ? 'Administrador' : 'Visualizador'}
+          </span></td>
+          <td>${desde}</td>
+        </tr>`;
+      };
+
+      const admins = usuarios.filter((u) => u.role === 'ADMIN');
+      const viewers = usuarios.filter((u) => u.role !== 'ADMIN');
+
+      document.getElementById('tabela-admins').innerHTML =
+        admins.map(linha).join('') ||
+        '<tr><td colspan="4" class="muted">Nenhum administrador cadastrado.</td></tr>';
+      document.getElementById('tabela-viewers').innerHTML =
+        viewers.map(linha).join('') ||
+        '<tr><td colspan="4" class="muted">Nenhum visualizador cadastrado.</td></tr>';
+    }
   </script>
 </body>
 </html>
