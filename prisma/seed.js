@@ -1,13 +1,15 @@
 // Seed: cria o usuário administrador inicial.
-// Credenciais HIPOTÉTICAS de desenvolvimento — troque a senha
-// no primeiro acesso em produção.
+// As credenciais vêm do .env (ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD).
+// Sem essas variáveis, usa valores hipotéticos de desenvolvimento.
 require('dotenv').config();
 
 const bcrypt = require('bcryptjs');
 const prisma = require('../src/lib/prisma');
 
 async function main() {
-  const email = 'admin@conectaorg.com';
+  const name = process.env.ADMIN_NAME || 'Administrador';
+  const email = process.env.ADMIN_EMAIL || 'admin@conectaorg.com';
+  const password = process.env.ADMIN_PASSWORD || 'admin123';
 
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) {
@@ -17,14 +19,14 @@ async function main() {
 
   await prisma.user.create({
     data: {
-      name: 'Administrador',
+      name,
       email,
-      password: await bcrypt.hash('admin123', 10),
+      password: await bcrypt.hash(password, 10),
       role: 'ADMIN',
     },
   });
 
-  console.log(`Admin criado: ${email} / senha: admin123`);
+  console.log(`Admin criado: ${email}`);
 }
 
 main()
