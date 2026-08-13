@@ -1,5 +1,12 @@
 const prisma = require('../lib/prisma');
 
+// nomes que não representam um gestor real
+const SEM_GESTOR = ['VACANTE', 'NÃO INFORMADO', 'NÃO ADICIONADO'];
+
+function gestorValido(nome) {
+  return nome && nome.trim() && !SEM_GESTOR.includes(nome.trim().toUpperCase());
+}
+
 // GET /api/organograma — árvore completa montada em memória
 async function tree(req, res) {
   const unidades = await prisma.orgUnit.findMany({
@@ -82,7 +89,77 @@ async function update(req, res) {
     },
   });
 
+  // registra a troca de gestor no histórico
+  const gestorNovo = gestor?.trim() || '';
+  if (gestorNovo !== (existe.gestor || '')) {
+    await prisma.gestorHistory.updateMany({
+      where: { orgUnitId: id, atual: true },
+      data: { atual: false },
+    });
+    if (gestorValido(gestorNovo)) {
+      await prisma.gestorHistory.create({
+        data: { orgUnitId: id, nome: gestorNovo, atual: true },
+      });
+    }
+  }
+
   res.json(unidade);
+}
+
+// GET /api/organograma/:id/gestores — histórico de gestores (somente ADMIN)
+async function gestores(req, res) {
+  const id = Number(req.params.id);
+
+  const unidade = await prisma.orgUnit.findUnique({ where: { id } });
+  if (!unidade) {
+    return res.status(404).json({ error: 'Unidade não encontrada.' });
+  }
+
+  // primeira consulta: registra o gestor atual como início do histórico
+  const total = await prisma.gestorHistory.count({ where: { orgUnitId: id } });
+  if (total === 0 && gestorValido(unidade.gestor)) {
+    await prisma.gestorHistory.create({
+      data: {
+        orgUnitId: id,
+        nome: unidade.gestor.trim(),
+        atual: true,
+        inicio: unidade.createdAt,
+      },
+    });
+  }
+
+  const lista = await prisma.gestorHistory.findMany({
+    where: { orgUnitId: id },
+    orderBy: [{ atual: 'desc' }, { inicio: 'desc' }],
+  });
+
+  res.json({ unidade: { id: unidade.id, nome: unidade.nome }, gestores: lista });
+}
+
+// PUT /api/organograma/gestores/:histId — documento do gestor (somente ADMIN)
+async function updateGestorDoc(req, res) {
+  const histId = Number(req.params.histId);
+  const { docTipo, docNumero, docUrl } = req.body;
+
+  const existe = await prisma.gestorHistory.findUnique({ where: { id: histId } });
+  if (!existe) {
+    return res.status(404).json({ error: 'Registro de gestor não encontrado.' });
+  }
+
+  if (docTipo && !['CI', 'OFICIO'].includes(docTipo)) {
+    return res.status(400).json({ error: 'Tipo de documento deve ser C.I ou Ofício.' });
+  }
+
+  const registro = await prisma.gestorHistory.update({
+    where: { id: histId },
+    data: {
+      docTipo: docTipo || null,
+      docNumero: docNumero?.trim() || null,
+      docUrl: docUrl?.trim() || null,
+    },
+  });
+
+  res.json(registro);
 }
 
 // POST /api/organograma — cria uma nova unidade (somente ADMIN)
@@ -137,4 +214,4 @@ async function remove(req, res) {
   res.json({ removidas: antes - depois });
 }
 
-module.exports = { tree, update, create, remove };
+module.exports = { tree, update, create, remove, gestores, updateGestorDoc };
