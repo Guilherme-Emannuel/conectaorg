@@ -284,6 +284,142 @@
   opacity: 1;
 }
 
+/* ícone do histórico de gestores — canto superior ESQUERDO do card */
+.org-card .btn-history {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.35;
+}
+
+.org-card .btn-history:hover {
+  opacity: 1;
+}
+
+.org-list summary .btn-history {
+  margin-left: auto;
+  border: none;
+  background: none;
+  cursor: pointer;
+  opacity: 0.35;
+}
+
+.org-list summary .btn-history + .btn-edit {
+  margin-left: 0;
+}
+
+.org-list summary .btn-history:hover {
+  opacity: 1;
+}
+
+/* ---------- Janelinha do histórico de gestores ---------- */
+.modal-historico {
+  max-width: 520px;
+}
+
+.hist-setor {
+  margin-top: -10px;
+  margin-bottom: 14px;
+}
+
+.hist-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+
+.hist-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.hist-item.atual {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.hist-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.badge-atual {
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+.hist-data {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.hist-doc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.btn-doc {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.doc-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: #eff6ff;
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+.hist-form {
+  margin-top: 10px;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+}
+
+.hist-form .field {
+  margin-bottom: 10px;
+}
+
+.hist-form-linha {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.hist-form-linha select,
+.hist-form-linha input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.hist-form-linha input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---------- Modo lista (acordeão) ---------- */
 .org-list {
   background: var(--surface);

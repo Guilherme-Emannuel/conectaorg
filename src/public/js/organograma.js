@@ -25,6 +25,12 @@ function editBtnHtml(id) {
     : '';
 }
 
+function historyBtnHtml(id) {
+  return isAdmin
+    ? `<button class="btn-history" data-history="${id}" title="Histórico de gestores">🕘</button>`
+    : '';
+}
+
 function esc(text) {
   const div = document.createElement('div');
   div.textContent = text ?? '';
@@ -64,6 +70,7 @@ function cardHtml(node) {
   const destaque = highlighted.has(node.id) ? ' highlight' : '';
   return `
     <div class="org-card${node.fotoVisivel ? ' has-avatar' : ''}${destaque}" data-card="${node.id}">
+      ${historyBtnHtml(node.id)}
       ${editBtnHtml(node.id)}
       ${avatarHtml(node, 'org-avatar')}
       <div class="setor">${esc(node.nome)}</div>
@@ -110,6 +117,7 @@ function listNodeHtml(node) {
           <div class="setor">${esc(node.nome)}</div>
           ${detalhes ? `<div class="detalhe">${detalhes}</div>` : ''}
         </div>
+        ${historyBtnHtml(node.id)}
         ${editBtnHtml(node.id)}
       </summary>
       ${temFilhos ? node.children.map(listNodeHtml).join('') : ''}
@@ -174,6 +182,11 @@ function toggleNode(id) {
 }
 
 canvas.addEventListener('click', (event) => {
+  const history = event.target.closest('[data-history]');
+  if (history) {
+    abrirModalHistorico(Number(history.dataset.history));
+    return;
+  }
   const edit = event.target.closest('[data-edit]');
   if (edit) {
     abrirModalEdicao(Number(edit.dataset.edit));
@@ -429,8 +442,15 @@ overlay.addEventListener('click', (event) => {
   if (event.target === overlay) fecharModal();
 });
 
-// no modo lista, o lápis não deve abrir/fechar o acordeão
+// no modo lista, os botões não devem abrir/fechar o acordeão
 listContainer.addEventListener('click', (event) => {
+  const history = event.target.closest('[data-history]');
+  if (history) {
+    event.preventDefault();
+    event.stopPropagation();
+    abrirModalHistorico(Number(history.dataset.history));
+    return;
+  }
   const edit = event.target.closest('[data-edit]');
   if (edit) {
     event.preventDefault();
@@ -438,6 +458,108 @@ listContainer.addEventListener('click', (event) => {
     abrirModalEdicao(Number(edit.dataset.edit));
   }
 });
+
+// ---------- Modal de histórico de gestores (somente ADMIN) ----------
+async function abrirModalHistorico(id) {
+  if (!isAdmin) return;
+
+  const res = await apiFetch(`/api/organograma/${id}/gestores`);
+  if (!res || !res.ok) {
+    alert('Erro ao carregar o histórico de gestores.');
+    return;
+  }
+
+  const { unidade, gestores } = await res.json();
+
+  const docLabel = (g) =>
+    g.docTipo
+      ? `<span class="doc-label">${g.docTipo === 'CI' ? 'C.I' : 'Ofício'}${
+          g.docNumero ? ` nº ${esc(g.docNumero)}` : ''
+        }</span>`
+      : '';
+
+  const itemHtml = (g) => `
+    <div class="hist-item${g.atual ? ' atual' : ''}">
+      <div class="hist-head">
+        <strong>${esc(g.nome)}</strong>
+        ${g.atual ? '<span class="badge-atual">Gestor Atual</span>' : ''}
+      </div>
+      <div class="hist-data">Adicionado como gestor em ${new Date(g.inicio).toLocaleDateString('pt-BR')}</div>
+      <div class="hist-doc">
+        ${
+          g.docUrl
+            ? `<a class="btn-sm btn-doc" href="${esc(g.docUrl)}" target="_blank" rel="noopener">📄 Abrir documento</a>`
+            : ''
+        }
+        ${docLabel(g)}
+        <button class="btn-sm" data-editdoc="${g.id}">✎ documento</button>
+      </div>
+      <div class="hist-form" id="hist-form-${g.id}" style="display:none">
+        <div class="field">
+          <label>URL do documento</label>
+          <input id="doc-url-${g.id}" value="${esc(g.docUrl || '')}" placeholder="https://...">
+        </div>
+        <div class="hist-form-linha">
+          <select id="doc-tipo-${g.id}">
+            <option value="" ${!g.docTipo ? 'selected' : ''}>Sem tipo</option>
+            <option value="CI" ${g.docTipo === 'CI' ? 'selected' : ''}>C.I</option>
+            <option value="OFICIO" ${g.docTipo === 'OFICIO' ? 'selected' : ''}>Ofício</option>
+          </select>
+          <input id="doc-num-${g.id}" value="${esc(g.docNumero || '')}" placeholder="Número (ex.: 123/2026)">
+          <button class="btn-primary" data-salvardoc="${g.id}">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+
+  overlay.innerHTML = `
+    <div class="modal modal-historico">
+      <h3>🕘 Histórico de Gestores</h3>
+      <p class="muted hist-setor">${esc(unidade.nome)}</p>
+      <div class="hist-lista">
+        ${gestores.map(itemHtml).join('') || '<p class="muted">Nenhum gestor registrado ainda.</p>'}
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="hist-fechar">Fechar</button>
+      </div>
+    </div>`;
+
+  document.getElementById('hist-fechar').onclick = fecharModal;
+
+  // abre/fecha o formulário de documento de cada gestor
+  overlay.querySelectorAll('[data-editdoc]').forEach((btn) => {
+    btn.onclick = () => {
+      const form = document.getElementById(`hist-form-${btn.dataset.editdoc}`);
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    };
+  });
+
+  overlay.querySelectorAll('[data-salvardoc]').forEach((btn) => {
+    btn.onclick = async () => {
+      const gid = btn.dataset.salvardoc;
+      let url = document.getElementById(`doc-url-${gid}`).value.trim();
+      if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+
+      const resp = await apiFetch(`/api/organograma/gestores/${gid}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          docUrl: url,
+          docTipo: document.getElementById(`doc-tipo-${gid}`).value || null,
+          docNumero: document.getElementById(`doc-num-${gid}`).value,
+        }),
+      });
+
+      if (!resp || !resp.ok) {
+        alert(resp ? (await resp.json()).error : 'Erro ao salvar documento.');
+        return;
+      }
+
+      mostrarToast('Documento do gestor foi atualizado com sucesso');
+      abrirModalHistorico(id); // recarrega a janelinha
+    };
+  });
+
+  overlay.classList.add('open');
+}
 
 // ---------- Barra de ferramentas e busca ----------
 const toolbar = document.getElementById('org-toolbar');
