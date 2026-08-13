@@ -38,8 +38,25 @@ model OrgUnit {
   parentId    Int?
   parent      OrgUnit?  @relation("Hierarquia", fields: [parentId], references: [id], onDelete: Cascade)
   children    OrgUnit[] @relation("Hierarquia")
+  gestores    GestorHistory[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@map("org_units")
+}
+
+// Histórico de gestores de cada unidade do organograma.
+// Os documentos (URL, C.I/Ofício) ficam SOMENTE no banco — nunca no git.
+model GestorHistory {
+  id        Int      @id @default(autoincrement())
+  orgUnitId Int
+  orgUnit   OrgUnit  @relation(fields: [orgUnitId], references: [id], onDelete: Cascade)
+  nome      String
+  inicio    DateTime @default(now()) // data em que foi adicionado como gestor
+  atual     Boolean  @default(false)
+  docTipo   String?  // 'CI' ou 'OFICIO'
+  docNumero String?
+  docUrl    String?  @db.Text
+
+  @@map("gestor_history")
 }
