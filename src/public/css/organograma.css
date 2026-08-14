@@ -1,10 +1,10 @@
-/* ---------- Página do organograma ---------- */
+/* ---------- Página do organograma (redesign) ---------- */
 /* A árvore usa toda a área útil; o modo lista continua centralizado */
 .org-container {
   max-width: none;
   width: 100%;
   margin: 0;
-  padding: 16px 24px 24px;
+  padding: var(--space-3) var(--space-4) var(--space-4);
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -23,8 +23,12 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: var(--space-2);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
 }
 
 .org-toolbar .spacer {
@@ -38,16 +42,32 @@
 }
 
 .org-search input {
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 0.9rem;
-  width: 230px;
   outline: none;
+  caret-color: var(--primary);
+  width: 240px;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.org-search input:focus {
+.org-search input::placeholder {
+  color: var(--text-faint);
+}
+
+.org-search input:hover {
+  border-color: var(--border-strong);
+}
+
+.org-search input:focus-visible {
   border-color: var(--primary);
+  background: var(--surface);
+  outline-offset: 0;
 }
 
 /* .btn-sm base fica no style.css global; aqui só a variação ativa */
@@ -61,9 +81,13 @@
 .org-viewport {
   position: relative;
   overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  background: var(--surface-tint);
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--text) 8%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  border-radius: var(--radius-lg);
   flex: 1;
   min-height: 320px;
   cursor: grab;
@@ -77,14 +101,14 @@
 .org-canvas {
   position: absolute;
   transform-origin: 0 0;
-  padding: 40px;
+  padding: var(--space-8);
   white-space: nowrap;
 }
 
 .zoom-controls {
   position: absolute;
-  right: 14px;
-  bottom: 14px;
+  right: var(--space-3);
+  bottom: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -95,7 +119,9 @@
   width: 38px;
   height: 38px;
   padding: 0;
-  font-size: 1.1rem;
+  font-size: 16px;
+  border-radius: 50%;
+  box-shadow: var(--shadow-md);
 }
 
 /* ---------- Árvore (conectores) ---------- */
@@ -103,7 +129,7 @@
 .tree ul {
   display: flex;
   align-items: flex-start;
-  padding-top: 24px;
+  padding-top: 28px;
   position: relative;
   list-style: none;
   margin: 0;
@@ -117,7 +143,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 8px 0;
+  padding: 28px 8px 0;
   position: relative;
 }
 
@@ -127,9 +153,9 @@
   position: absolute;
   top: 0;
   left: 50%;
-  width: 2px;
-  height: 24px;
-  background: var(--border);
+  width: 1px;
+  height: 28px;
+  background: var(--border-strong);
 }
 
 /* linha horizontal ligando irmãos */
@@ -137,8 +163,8 @@
   content: '';
   position: absolute;
   top: 0;
-  height: 2px;
-  background: var(--border);
+  height: 1px;
+  background: var(--border-strong);
   left: 0;
   right: 0;
 }
@@ -170,46 +196,51 @@
   position: absolute;
   top: 0;
   left: 50%;
-  width: 2px;
-  height: 24px;
-  background: var(--border);
+  width: 1px;
+  height: 28px;
+  background: var(--border-strong);
 }
 
 /* ---------- Card da unidade ---------- */
 .org-card {
   position: relative;
   background: var(--surface);
-  border: 2px solid #1e3a8a; /* azul escuro */
-  border-radius: var(--radius);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   width: 210px;
-  padding: 14px 12px 12px;
+  padding: var(--space-3) var(--space-3) var(--space-3);
   text-align: center;
   white-space: normal;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.org-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
 }
 
 .org-card.has-avatar {
-  margin-top: 26px;
-  padding-top: 32px;
+  margin-top: 28px;
+  padding-top: 34px;
 }
 
 .org-avatar {
   position: absolute;
-  top: -26px;
+  top: -28px;
   left: 50%;
   transform: translateX(-50%);
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--primary);
   color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 16px;
   border: 3px solid var(--surface);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -220,26 +251,28 @@
 }
 
 .org-card .setor {
+  font-family: var(--font-heading);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 14.5px;
   line-height: 1.25;
+  margin-top: 4px;
 }
 
 .org-card .sigla {
-  display: inline-block;
+  display: inline-flex;
   margin-top: 6px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--primary);
-  background: #eff6ff;
-  border-radius: 99px;
-  padding: 2px 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--primary-700);
+  background: var(--primary-50);
+  border-radius: 20px;
+  padding: 2px 8px;
 }
 
 .org-card .gestor {
-  margin-top: 6px;
-  font-size: 0.78rem;
+  margin-top: 4px;
+  font-size: 12.5px;
   color: var(--text-muted);
 }
 
@@ -248,72 +281,212 @@
   font-style: italic;
 }
 
+/* destaque de busca — magenta, a segunda tinta, visível à distância */
 .org-card.highlight {
-  border-color: #f83842; /* cor de destaque do resultado da busca */
-  box-shadow: 0 0 0 3px rgba(248, 56, 56, 0.4);
+  background: var(--accent-2-50);
+  box-shadow:
+    0 0 0 3px var(--accent-2),
+    0 0 0 9px color-mix(in srgb, var(--accent-2) 20%, transparent),
+    var(--shadow-lg);
 }
 
 .org-card .btn-toggle {
   margin-top: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
-  border-radius: 99px;
-  padding: 2px 10px;
-  font-size: 0.72rem;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--font-heading);
+  font-weight: 600;
   cursor: pointer;
   color: var(--text-muted);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .org-card .btn-toggle:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: var(--primary-50);
+  border-color: var(--primary-300);
+  color: var(--primary-700);
 }
 
-.org-card .btn-edit {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 0.85rem;
-  opacity: 0.35;
-}
-
-.org-card .btn-edit:hover {
-  opacity: 1;
-}
-
-/* ícone do histórico de gestores — canto superior ESQUERDO do card */
+/* botões de ação — circulares, aparecem no hover do card */
+.org-card .btn-edit,
 .org-card .btn-history {
   position: absolute;
   top: 6px;
-  left: 6px;
-  border: none;
-  background: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
   cursor: pointer;
-  font-size: 0.85rem;
-  opacity: 0.35;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.org-card .btn-history:hover {
+.org-card .btn-edit {
+  right: 6px;
+}
+
+.org-card .btn-history {
+  left: 6px;
+}
+
+.org-card:hover .btn-edit,
+.org-card:hover .btn-history,
+.org-card:focus-within .btn-edit,
+.org-card:focus-within .btn-history {
   opacity: 1;
+}
+
+.org-card .btn-edit:hover,
+.org-card .btn-history:hover {
+  background: var(--primary-50);
+  border-color: var(--primary-300);
+}
+
+/* ---------- Modo lista (acordeão) ---------- */
+.org-list {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-2);
+}
+
+.org-list details {
+  margin-left: 0;
+}
+
+.org-list details details {
+  margin-left: 22px;
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+}
+
+.org-list summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  transition: background 0.15s ease;
+}
+
+.org-list summary::-webkit-details-marker {
+  display: none;
+}
+
+.org-list summary:hover {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.org-list .caret {
+  width: 14px;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.org-list details[open] > summary .caret {
+  transform: rotate(90deg);
+}
+
+.org-list .leaf .caret {
+  visibility: hidden;
+}
+
+.org-list .mini-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 11.5px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.org-list .mini-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.org-list .info {
+  min-width: 0;
+}
+
+.org-list .info .setor {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.org-list .info .detalhe {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.org-list .info .detalhe .sigla-inline {
+  color: var(--primary-700);
+  font-weight: 600;
 }
 
 .org-list summary .btn-history {
   margin-left: auto;
-  border: none;
-  background: none;
+}
+
+.org-list summary .btn-edit,
+.org-list summary .btn-history {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
   cursor: pointer;
-  opacity: 0.35;
+  display: grid;
+  place-items: center;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
 }
 
-.org-list summary .btn-history + .btn-edit {
-  margin-left: 0;
-}
-
+.org-list summary .btn-edit:hover,
 .org-list summary .btn-history:hover {
   opacity: 1;
+  background: var(--primary-50);
+  border-color: var(--primary-300);
+}
+
+.org-list summary.highlight {
+  background: var(--accent-2-50);
+  box-shadow: inset 3px 0 0 var(--accent-2);
+}
+
+/* ---------- Complementos do modal (específicos do organograma) ---------- */
+.modal .foto-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: var(--space-3);
+}
+
+.modal .foto-preview .org-avatar {
+  position: static;
+  transform: none;
 }
 
 /* ---------- Janelinha do histórico de gestores ---------- */
@@ -322,28 +495,29 @@
 }
 
 .hist-setor {
-  margin-top: -10px;
-  margin-bottom: 14px;
+  margin-top: -8px;
+  margin-bottom: var(--space-3);
 }
 
 .hist-lista {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   max-height: 55vh;
   overflow-y: auto;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-3);
 }
 
 .hist-item {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
+  padding: var(--space-2) var(--space-3);
+  transition: background 0.15s ease;
 }
 
 .hist-item.atual {
-  border-color: #16a34a;
-  background: #f0fdf4;
+  border-color: var(--success);
+  background: var(--success-50);
 }
 
 .hist-head {
@@ -354,17 +528,22 @@
 }
 
 .badge-atual {
-  background: #16a34a;
+  display: inline-flex;
+  background: var(--success);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 10.5px;
   font-weight: 700;
-  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 20px;
   padding: 3px 10px;
 }
 
 .hist-data {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   margin-top: 4px;
 }
 
@@ -378,15 +557,17 @@
 
 .btn-doc {
   text-decoration: none;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .doc-label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--primary);
-  background: #eff6ff;
-  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary-700);
+  background: var(--primary-50);
+  border-radius: 20px;
   padding: 3px 10px;
 }
 
@@ -408,137 +589,27 @@
 
 .hist-form-linha select,
 .hist-form-linha input {
-  padding: 8px 10px;
+  min-height: 36px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 0.85rem;
+  background: var(--bg);
   outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.hist-form-linha select:focus-visible,
+.hist-form-linha input:focus-visible {
+  border-color: var(--primary);
+  outline-offset: 0;
 }
 
 .hist-form-linha input {
   flex: 1;
   min-width: 0;
-}
-
-/* ---------- Modo lista (acordeão) ---------- */
-.org-list {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px;
-}
-
-.org-list details {
-  margin-left: 0;
-}
-
-.org-list details details {
-  margin-left: 22px;
-  border-left: 2px solid var(--border);
-  padding-left: 10px;
-}
-
-.org-list summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-}
-
-.org-list summary::-webkit-details-marker {
-  display: none;
-}
-
-.org-list summary:hover {
-  background: var(--bg);
-}
-
-.org-list .caret {
-  width: 14px;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  transition: transform 0.15s;
-  flex-shrink: 0;
-}
-
-.org-list details[open] > summary .caret {
-  transform: rotate(90deg);
-}
-
-.org-list .leaf .caret {
-  visibility: hidden;
-}
-
-.org-list .mini-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.75rem;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.org-list .mini-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.org-list .info {
-  min-width: 0;
-}
-
-.org-list .info .setor {
-  font-weight: 600;
-  font-size: 0.88rem;
-}
-
-.org-list .info .detalhe {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.org-list .info .detalhe .sigla-inline {
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.org-list summary .btn-edit {
-  margin-left: auto;
-  border: none;
-  background: none;
-  cursor: pointer;
-  opacity: 0.35;
-}
-
-.org-list summary .btn-edit:hover {
-  opacity: 1;
-}
-
-.org-list summary.highlight {
-  background: #fef3c7;
-}
-
-/* ---------- Complementos do modal (específicos do organograma) ---------- */
-.modal .foto-preview {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.modal .foto-preview .org-avatar {
-  position: static;
-  transform: none;
 }
 
 /* ---------- Responsivo ---------- */
