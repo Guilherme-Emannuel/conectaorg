@@ -5,7 +5,7 @@ const MENU_ITEMS = [
   { id: 'dashboard', label: 'Início', href: '/dashboard.html', icon: '🏠' },
   { id: 'organograma', label: 'Organograma', href: '/organograma.html', icon: '🏛️' },
   { id: 'atendimentos', label: 'Atendimentos', href: '#', icon: '💬', disabled: true },
-  { id: 'usuarios', label: 'Usuários', href: '#', icon: '👥', disabled: true },
+  { id: 'usuarios', label: 'Usuários', href: '/usuarios.html', icon: '👥', adminOnly: true },
   { id: 'admin', label: 'Administração', href: '/admin.html', icon: '⚙️', adminOnly: true },
 ];
 

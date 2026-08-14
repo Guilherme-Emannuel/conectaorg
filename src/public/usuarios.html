@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuários — ConectaOrg</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="container">
+        <div class="card">
+          <h3>Usuários</h3>
+          <p class="muted">
+            Dados consultados em modo somente leitura de um banco externo.
+            Nenhuma informação pode ser alterada por esta tela.
+          </p>
+        </div>
+
+        <div id="aviso" class="card" style="display:none">
+          <p class="muted" id="aviso-texto"></p>
+        </div>
+
+        <div class="card" id="dados-card" style="display:none">
+          <div class="org-search" style="margin-bottom:14px">
+            <input type="search" id="filtro" placeholder="Filtrar resultados..."
+              style="width:280px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;outline:none">
+            <span class="muted" id="contagem" style="font-size:0.85rem"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead id="cabecalho"></thead>
+              <tbody id="linhas"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    initLayout('usuarios');
+
+    function esc(texto) {
+      const div = document.createElement('div');
+      div.textContent = texto ?? '';
+      return div.innerHTML;
+    }
+
+    let dados = { columns: [], rows: [] };
+
+    function renderizar(filtro = '') {
+      const termo = filtro.trim().toLowerCase();
+      const visiveis = termo
+        ? dados.rows.filter((linha) =>
+            dados.columns.some((c) => String(linha[c] ?? '').toLowerCase().includes(termo))
+          )
+        : dados.rows;
+
+      document.getElementById('cabecalho').innerHTML =
+        `<tr>${dados.columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>`;
+
+      document.getElementById('linhas').innerHTML =
+        visiveis
+          .map(
+            (linha) =>
+              `<tr>${dados.columns.map((c) => `<td>${esc(linha[c])}</td>`).join('')}</tr>`
+          )
+          .join('') ||
+        `<tr><td colspan="${dados.columns.length}" class="muted">Nenhum resultado.</td></tr>`;
+
+      document.getElementById('contagem').textContent =
+        `${visiveis.length} de ${dados.rows.length} registro(s)`;
+    }
+
+    async function carregar() {
+      const res = await apiFetch('/api/external-users');
+      if (!res) return;
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        const aviso = document.getElementById('aviso');
+        document.getElementById('aviso-texto').textContent =
+          error || 'Erro ao consultar os dados.';
+        aviso.style.display = 'block';
+        return;
+      }
+
+      dados = await res.json();
+      document.getElementById('dados-card').style.display = 'block';
+      renderizar();
+    }
+
+    document.getElementById('filtro').addEventListener('input', (e) => {
+      renderizar(e.target.value);
+    });
+
+    carregar();
+  </script>
+</body>
+</html>
