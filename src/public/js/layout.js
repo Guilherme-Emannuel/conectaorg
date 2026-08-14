@@ -47,7 +47,7 @@ function initLayout(activePage) {
   );
 
   document.getElementById('sidebar').innerHTML = `
-    <div class="sidebar-brand">ConectaOrg</div>
+    <div class="sidebar-brand">Conecta<em>Org</em></div>
     <nav class="sidebar-nav">
       ${items
         .map((item) => {
