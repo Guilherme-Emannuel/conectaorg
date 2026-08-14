@@ -4,6 +4,7 @@ const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const organogramaRoutes = require('./routes/organogramaRoutes');
+const externalUsersRoutes = require('./routes/externalUsersRoutes');
 
 const app = express();
 
@@ -23,5 +24,6 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/organograma', organogramaRoutes);
+app.use('/api/external-users', externalUsersRoutes);
 
 module.exports = app;
