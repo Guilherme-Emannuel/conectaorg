@@ -25,8 +25,9 @@
         </div>
 
         <div class="card" id="dados-card" style="display:none">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-            <input type="search" id="filtro" class="search-input" placeholder="Filtrar resultados...">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <input type="search" id="filtro" class="search-input"
+              placeholder="Buscar em todos os registros...">
             <span class="muted" id="contagem" style="font-size:12.5px"></span>
           </div>
           <div class="table-wrap">
@@ -34,6 +35,11 @@
               <thead id="cabecalho"></thead>
               <tbody id="linhas"></tbody>
             </table>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn-sm" id="pag-anterior">« Anterior</button>
+            <span class="muted" id="pag-info" style="font-size:12.5px"></span>
+            <button class="btn-sm" id="pag-proxima">Próxima »</button>
           </div>
         </div>
       </main>
@@ -51,34 +57,40 @@
       return div.innerHTML;
     }
 
-    let dados = { columns: [], rows: [] };
+    // busca e paginação acontecem no SERVIDOR — aqui só exibimos
+    let paginaAtual = 1;
+    let termoBusca = '';
+    let totalPaginas = 1;
 
-    function renderizar(filtro = '') {
-      const termo = filtro.trim().toLowerCase();
-      const visiveis = termo
-        ? dados.rows.filter((linha) =>
-            dados.columns.some((c) => String(linha[c] ?? '').toLowerCase().includes(termo))
-          )
-        : dados.rows;
-
+    function renderizar(dados) {
       document.getElementById('cabecalho').innerHTML =
         `<tr>${dados.columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>`;
 
       document.getElementById('linhas').innerHTML =
-        visiveis
+        dados.rows
           .map(
             (linha) =>
               `<tr>${dados.columns.map((c) => `<td>${esc(linha[c])}</td>`).join('')}</tr>`
           )
           .join('') ||
-        `<tr><td colspan="${dados.columns.length}" class="muted">Nenhum resultado.</td></tr>`;
+        `<tr><td colspan="${Math.max(1, dados.columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
 
       document.getElementById('contagem').textContent =
-        `${visiveis.length} de ${dados.rows.length} registro(s)`;
+        `${dados.total.toLocaleString('pt-BR')} registro(s)` +
+        (termoBusca ? ` para "${termoBusca}"` : '');
+
+      totalPaginas = dados.totalPages;
+      document.getElementById('pag-info').textContent =
+        `Página ${dados.page} de ${dados.totalPages}`;
+      document.getElementById('pag-anterior').disabled = dados.page <= 1;
+      document.getElementById('pag-proxima').disabled = dados.page >= dados.totalPages;
     }
 
     async function carregar() {
-      const res = await apiFetch('/api/external-users');
+      const params = new URLSearchParams({ page: paginaAtual });
+      if (termoBusca) params.set('q', termoBusca);
+
+      const res = await apiFetch(`/api/external-users?${params}`);
       if (!res) return;
 
       if (!res.ok) {
@@ -90,13 +102,33 @@
         return;
       }
 
-      dados = await res.json();
       document.getElementById('dados-card').style.display = 'block';
-      renderizar();
+      renderizar(await res.json());
     }
 
+    // busca com espera de digitação (350ms) — cada busca consulta o banco todo
+    let buscaTimer = null;
     document.getElementById('filtro').addEventListener('input', (e) => {
-      renderizar(e.target.value);
+      clearTimeout(buscaTimer);
+      buscaTimer = setTimeout(() => {
+        termoBusca = e.target.value.trim();
+        paginaAtual = 1;
+        carregar();
+      }, 350);
+    });
+
+    document.getElementById('pag-anterior').addEventListener('click', () => {
+      if (paginaAtual > 1) {
+        paginaAtual--;
+        carregar();
+      }
+    });
+
+    document.getElementById('pag-proxima').addEventListener('click', () => {
+      if (paginaAtual < totalPaginas) {
+        paginaAtual++;
+        carregar();
+      }
     });
 
     carregar();
