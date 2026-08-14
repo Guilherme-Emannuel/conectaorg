@@ -1,6 +1,6 @@
 const { configurado, consultarUsuariosExternos } = require('../lib/externalDb');
 
-// GET /api/external-users — dados do banco externo, somente leitura (ADMIN)
+// GET /api/external-users?q=...&page=N — banco externo, somente leitura (ADMIN)
 async function listar(req, res) {
   if (!configurado()) {
     return res.status(503).json({
@@ -10,9 +10,12 @@ async function listar(req, res) {
   }
 
   try {
-    const rows = await consultarUsuariosExternos();
-    const columns = rows.length ? Object.keys(rows[0]) : [];
-    res.json({ columns, rows, total: rows.length });
+    const resultado = await consultarUsuariosExternos({
+      q: req.query.q || '',
+      page: req.query.page || 1,
+    });
+    const columns = resultado.rows.length ? Object.keys(resultado.rows[0]) : [];
+    res.json({ columns, ...resultado });
   } catch (err) {
     console.error('Erro na consulta externa:', err.message);
     res.status(502).json({
