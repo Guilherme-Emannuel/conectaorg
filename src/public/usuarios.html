@@ -70,10 +70,28 @@
 
     function formatarTelefone(valor) {
       // remove zeros à esquerda do DDD: "067 999990000" -> "67999990000"
-      const d = somenteDigitos(valor).replace(/^0+/, '');
+      let d = somenteDigitos(valor).replace(/^0+/, '');
+      // número sem DDD (9 dígitos celular / 8 fixo): assume DDD 67
+      if (d.length === 9 || d.length === 8) d = '67' + d;
       if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
       if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
       return valor; // formato desconhecido: exibe como veio
+    }
+
+    function formatarData(valor) {
+      // aceita "2004-12-01", "2004-12-01 08:30:00" e o formato ISO antigo
+      const m = String(valor).match(
+        /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/
+      );
+      if (!m) return valor;
+      const data = `${m[3]}/${m[2]}/${m[1]}`;
+      const hora = m[4] && `${m[4]}:${m[5]}` !== '00:00' ? ` ${m[4]}:${m[5]}` : '';
+      return data + hora;
+    }
+
+    function ehColunaData(coluna) {
+      const c = coluna.toLowerCase();
+      return c.startsWith('data') || c.includes('_data') || c.includes('date');
     }
 
     // decide pela coluna o que formatar (genérico: vale pra qualquer tabela)
@@ -84,7 +102,17 @@
       if (c.includes('celular') || c.includes('telefone') || c.includes('fone')) {
         return formatarTelefone(valor);
       }
+      if (ehColunaData(c)) return formatarData(valor);
       return valor;
+    }
+
+    // colunas formatadas não quebram linha (CPF, telefone, datas)
+    function classeCelula(coluna) {
+      const c = coluna.toLowerCase();
+      const semQuebra =
+        c.includes('cpf') || c.includes('celular') || c.includes('telefone') ||
+        c.includes('fone') || ehColunaData(c);
+      return semQuebra ? ' class="nowrap"' : '';
     }
 
     // busca e paginação acontecem no SERVIDOR — aqui só exibimos
@@ -100,7 +128,7 @@
         dados.rows
           .map(
             (linha) =>
-              `<tr>${dados.columns.map((c) => `<td>${esc(formatarCelula(c, linha[c]))}</td>`).join('')}</tr>`
+              `<tr>${dados.columns.map((c) => `<td${classeCelula(c)}>${esc(formatarCelula(c, linha[c]))}</td>`).join('')}</tr>`
           )
           .join('') ||
         `<tr><td colspan="${Math.max(1, dados.columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
