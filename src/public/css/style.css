@@ -516,6 +516,24 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
 }
 
+/* telefone clicável — abre conversa no WhatsApp */
+.tel-link {
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 3px 8px;
+  margin: -3px -8px;
+  border-radius: 20px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tel-link:hover {
+  background: var(--success-50); /* verde claro */
+  color: var(--success-900);
+}
+
 .data-table .acoes {
   white-space: nowrap;
   display: flex;

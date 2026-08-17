@@ -46,6 +46,8 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-overlay"></div>
+
   <script src="/js/auth.js"></script>
   <script src="/js/layout.js"></script>
   <script>
@@ -106,6 +108,31 @@
       return valor;
     }
 
+    // telefone normalizado (10/11 dígitos com DDD) pra link do WhatsApp,
+    // ou null se o número não estiver num formato válido
+    function telefoneDigitos(valor) {
+      let d = somenteDigitos(valor).replace(/^0+/, '');
+      if (d.length === 9 || d.length === 8) d = '67' + d;
+      return d.length === 10 || d.length === 11 ? d : null;
+    }
+
+    function ehColunaTelefone(coluna) {
+      const c = coluna.toLowerCase();
+      return c.includes('celular') || c.includes('telefone') || c.includes('fone');
+    }
+
+    // monta o conteúdo final da célula (telefones viram botão clicável)
+    function celulaHtml(coluna, valor) {
+      const conteudo = esc(formatarCelula(coluna, valor));
+      if (ehColunaTelefone(coluna)) {
+        const d = telefoneDigitos(valor);
+        if (d) {
+          return `<button class="tel-link" data-tel="${d}" title="Abrir no WhatsApp">${conteudo}</button>`;
+        }
+      }
+      return conteudo;
+    }
+
     // colunas formatadas não quebram linha (CPF, telefone, datas)
     function classeCelula(coluna) {
       const c = coluna.toLowerCase();
@@ -128,7 +155,7 @@
         dados.rows
           .map(
             (linha) =>
-              `<tr>${dados.columns.map((c) => `<td${classeCelula(c)}>${esc(formatarCelula(c, linha[c]))}</td>`).join('')}</tr>`
+              `<tr>${dados.columns.map((c) => `<td${classeCelula(c)}>${celulaHtml(c, linha[c])}</td>`).join('')}</tr>`
           )
           .join('') ||
         `<tr><td colspan="${Math.max(1, dados.columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
@@ -173,6 +200,51 @@
         paginaAtual = 1;
         carregar();
       }, 350);
+    });
+
+    // ---- abrir conversa no WhatsApp (Web ou aplicativo do PC) ----
+    const overlay = document.getElementById('modal-overlay');
+
+    function fecharModal() {
+      overlay.classList.remove('open');
+      overlay.innerHTML = '';
+    }
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) fecharModal();
+    });
+
+    function abrirWhatsapp(digitos) {
+      const numeroFormatado = formatarTelefone(digitos);
+      const internacional = `55${digitos}`;
+
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:360px">
+          <h3>Abrir no WhatsApp</h3>
+          <p class="muted" style="margin-bottom:15px">Conversar com <strong>${esc(numeroFormatado)}</strong></p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button type="button" class="btn-primary" id="wa-web">🌐 WhatsApp Web (navegador)</button>
+            <button type="button" class="btn-primary" id="wa-app">💻 Aplicativo instalado no PC</button>
+            <button type="button" class="btn-secondary" id="wa-cancelar">Cancelar</button>
+          </div>
+        </div>`;
+
+      document.getElementById('wa-web').onclick = () => {
+        window.open(`https://web.whatsapp.com/send?phone=${internacional}`, '_blank', 'noopener');
+        fecharModal();
+      };
+      document.getElementById('wa-app').onclick = () => {
+        window.location.href = `whatsapp://send?phone=${internacional}`;
+        fecharModal();
+      };
+      document.getElementById('wa-cancelar').onclick = fecharModal;
+
+      overlay.classList.add('open');
+    }
+
+    document.getElementById('linhas').addEventListener('click', (event) => {
+      const tel = event.target.closest('[data-tel]');
+      if (tel) abrirWhatsapp(tel.dataset.tel);
     });
 
     document.getElementById('pag-anterior').addEventListener('click', () => {
