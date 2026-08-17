@@ -31,6 +31,9 @@ function getPool() {
       waitForConnections: true,
       connectionLimit: 3,
       connectTimeout: 8000,
+      // datas chegam como texto puro ("2004-12-01"), sem conversão de fuso
+      // que poderia até deslocar o dia — o dado exibido é o dado gravado
+      dateStrings: true,
     });
   }
   return pool;
