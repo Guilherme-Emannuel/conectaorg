@@ -57,6 +57,36 @@
       return div.innerHTML;
     }
 
+    // ---- formatação de exibição (não altera o dado no banco) ----
+    function somenteDigitos(valor) {
+      return String(valor ?? '').replace(/\D/g, '');
+    }
+
+    function formatarCpf(valor) {
+      const d = somenteDigitos(valor);
+      if (d.length !== 11) return valor;
+      return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
+    function formatarTelefone(valor) {
+      // remove zeros à esquerda do DDD: "067 999990000" -> "67999990000"
+      const d = somenteDigitos(valor).replace(/^0+/, '');
+      if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+      return valor; // formato desconhecido: exibe como veio
+    }
+
+    // decide pela coluna o que formatar (genérico: vale pra qualquer tabela)
+    function formatarCelula(coluna, valor) {
+      if (valor === null || valor === undefined || valor === '') return valor;
+      const c = coluna.toLowerCase();
+      if (c.includes('cpf')) return formatarCpf(valor);
+      if (c.includes('celular') || c.includes('telefone') || c.includes('fone')) {
+        return formatarTelefone(valor);
+      }
+      return valor;
+    }
+
     // busca e paginação acontecem no SERVIDOR — aqui só exibimos
     let paginaAtual = 1;
     let termoBusca = '';
@@ -70,7 +100,7 @@
         dados.rows
           .map(
             (linha) =>
-              `<tr>${dados.columns.map((c) => `<td>${esc(linha[c])}</td>`).join('')}</tr>`
+              `<tr>${dados.columns.map((c) => `<td>${esc(formatarCelula(c, linha[c]))}</td>`).join('')}</tr>`
           )
           .join('') ||
         `<tr><td colspan="${Math.max(1, dados.columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
