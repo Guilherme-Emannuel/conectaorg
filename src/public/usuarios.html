@@ -148,8 +148,10 @@
     let totalPaginas = 1;
 
     function renderizar(dados) {
+      // cabeçalhos usam os rótulos configurados; os dados seguem pelas colunas
+      const rotulos = dados.labels || dados.columns;
       document.getElementById('cabecalho').innerHTML =
-        `<tr>${dados.columns.map((c) => `<th>${esc(c)}</th>`).join('')}</tr>`;
+        `<tr>${rotulos.map((r) => `<th>${esc(r)}</th>`).join('')}</tr>`;
 
       document.getElementById('linhas').innerHTML =
         dados.rows
