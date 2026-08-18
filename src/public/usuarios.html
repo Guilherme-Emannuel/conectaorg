@@ -142,6 +142,26 @@
       return semQuebra ? ' class="nowrap"' : '';
     }
 
+    // ---- coluna reservada para o Webmail ----
+    // Não vem do banco externo (esse é lido só via EXT_DB_COLUMNS/LABELS no
+    // .env) — o webmail chegará futuramente por OUTRA API. Por isso o
+    // espaço é fixo aqui no código, entre Celular e Cargo_atual, e não é
+    // configurável pelo .env: cada instalação já vê essa coluna igual.
+    const COLUNA_WEBMAIL = '__webmail';
+
+    function comColunaWebmail(columns, labels) {
+      if (columns.includes(COLUNA_WEBMAIL)) return { columns, labels };
+
+      const idx = columns.findIndex((c) => c.toLowerCase().includes('celular'));
+      const posicao = idx === -1 ? columns.length : idx + 1;
+
+      const novasColunas = [...columns];
+      const novosRotulos = [...labels];
+      novasColunas.splice(posicao, 0, COLUNA_WEBMAIL);
+      novosRotulos.splice(posicao, 0, 'WEBMAIL');
+      return { columns: novasColunas, labels: novosRotulos };
+    }
+
     // busca e paginação acontecem no SERVIDOR — aqui só exibimos
     let paginaAtual = 1;
     let termoBusca = '';
@@ -149,18 +169,27 @@
 
     function renderizar(dados) {
       // cabeçalhos usam os rótulos configurados; os dados seguem pelas colunas
-      const rotulos = dados.labels || dados.columns;
+      const { columns, labels } = comColunaWebmail(
+        dados.columns,
+        dados.labels || dados.columns
+      );
+
       document.getElementById('cabecalho').innerHTML =
-        `<tr>${rotulos.map((r) => `<th>${esc(r)}</th>`).join('')}</tr>`;
+        `<tr>${labels.map((r) => `<th>${esc(r)}</th>`).join('')}</tr>`;
+
+      const celula = (coluna, linha) =>
+        coluna === COLUNA_WEBMAIL
+          ? '<span class="muted" title="Chegará por outra integração futura">—</span>'
+          : celulaHtml(coluna, linha[coluna]);
 
       document.getElementById('linhas').innerHTML =
         dados.rows
           .map(
             (linha) =>
-              `<tr>${dados.columns.map((c) => `<td${classeCelula(c)}>${celulaHtml(c, linha[c])}</td>`).join('')}</tr>`
+              `<tr>${columns.map((c) => `<td${classeCelula(c)}>${celula(c, linha)}</td>`).join('')}</tr>`
           )
           .join('') ||
-        `<tr><td colspan="${Math.max(1, dados.columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
+        `<tr><td colspan="${Math.max(1, columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
 
       document.getElementById('contagem').textContent =
         `${dados.total.toLocaleString('pt-BR')} registro(s)` +
