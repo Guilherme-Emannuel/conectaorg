@@ -48,6 +48,21 @@ function colunasConfiguradas() {
     .filter(Boolean);
 }
 
+// mapa coluna -> rótulo de exibição (EXT_DB_LABELS, posicional às colunas)
+function mapaRotulos() {
+  const colunas = colunasConfiguradas();
+  const rotulos = (process.env.EXT_DB_LABELS || '')
+    .split(',')
+    .map((r) => r.trim())
+    .filter(Boolean);
+
+  const mapa = {};
+  colunas.forEach((col, i) => {
+    mapa[col] = rotulos[i] || col;
+  });
+  return mapa;
+}
+
 // Busca paginada: WHERE com LIKE em todas as colunas exibidas (parametrizado)
 // e COUNT(*) com o mesmo filtro para o total real.
 async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
@@ -93,4 +108,4 @@ async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
   };
 }
 
-module.exports = { configurado, consultarUsuariosExternos };
+module.exports = { configurado, consultarUsuariosExternos, mapaRotulos };

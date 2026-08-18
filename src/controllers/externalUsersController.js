@@ -1,4 +1,8 @@
-const { configurado, consultarUsuariosExternos } = require('../lib/externalDb');
+const {
+  configurado,
+  consultarUsuariosExternos,
+  mapaRotulos,
+} = require('../lib/externalDb');
 
 // GET /api/external-users?q=...&page=N — banco externo, somente leitura (ADMIN)
 async function listar(req, res) {
@@ -15,7 +19,9 @@ async function listar(req, res) {
       page: req.query.page || 1,
     });
     const columns = resultado.rows.length ? Object.keys(resultado.rows[0]) : [];
-    res.json({ columns, ...resultado });
+    const rotulos = mapaRotulos();
+    const labels = columns.map((c) => rotulos[c] || c);
+    res.json({ columns, labels, ...resultado });
   } catch (err) {
     console.error('Erro na consulta externa:', err.message);
     res.status(502).json({
