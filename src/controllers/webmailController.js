@@ -1,4 +1,4 @@
-const { configurado, estatisticas } = require('../lib/emailsDb');
+const { configurado, estatisticas, listarContas } = require('../lib/emailsDb');
 
 // GET /api/webmail/stats — total, ativados e desativados (somente ADMIN)
 async function stats(req, res) {
@@ -19,4 +19,26 @@ async function stats(req, res) {
   }
 }
 
-module.exports = { stats };
+// GET /api/webmail/accounts?q=...&page=N — lista de contas (somente ADMIN)
+async function accounts(req, res) {
+  if (!configurado()) {
+    return res.status(503).json({
+      error: 'Conexão do webmail não configurada. Preencha DB_EMAILS_* no arquivo .env.',
+    });
+  }
+
+  try {
+    const resultado = await listarContas({
+      q: req.query.q || '',
+      page: req.query.page || 1,
+    });
+    res.json(resultado);
+  } catch (err) {
+    console.error('Erro ao listar contas de webmail:', err.message);
+    res.status(502).json({
+      error: 'Não foi possível consultar o banco de e-mails. Verifique a conexão no .env.',
+    });
+  }
+}
+
+module.exports = { stats, accounts };
