@@ -5,6 +5,7 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const organogramaRoutes = require('./routes/organogramaRoutes');
 const externalUsersRoutes = require('./routes/externalUsersRoutes');
+const webmailRoutes = require('./routes/webmailRoutes');
 
 const app = express();
 
@@ -25,5 +26,6 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/organograma', organogramaRoutes);
 app.use('/api/external-users', externalUsersRoutes);
+app.use('/api/webmail', webmailRoutes);
 
 module.exports = app;
