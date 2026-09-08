@@ -25,18 +25,18 @@
         </div>
 
         <div class="stats-grid">
-          <div class="card">
+          <button type="button" class="card stat-filtro active" data-status="">
             <p class="muted">Webmails cadastrados</p>
             <div class="stat-value" id="wm-total">—</div>
-          </div>
-          <div class="card">
+          </button>
+          <button type="button" class="card stat-filtro" data-status="ativo">
             <p class="muted">Ativados</p>
             <div class="stat-value" id="wm-ativos">—</div>
-          </div>
-          <div class="card">
+          </button>
+          <button type="button" class="card stat-filtro" data-status="inativo">
             <p class="muted">Desativados</p>
             <div class="stat-value" id="wm-inativos">—</div>
-          </div>
+          </button>
         </div>
 
         <div class="card" id="dados-card" style="display:none">
@@ -112,6 +112,7 @@
     let paginaAtual = 1;
     let termoBusca = '';
     let totalPaginas = 1;
+    let filtroStatus = '';
 
     function linhaHtml(conta) {
       const ativo = Number(conta.active) === 1;
@@ -138,8 +139,10 @@
         dados.rows.map(linhaHtml).join('') ||
         '<tr><td colspan="7" class="muted">Nenhum resultado.</td></tr>';
 
+      const rotuloFiltro =
+        filtroStatus === 'ativo' ? ' (ativados)' : filtroStatus === 'inativo' ? ' (desativados)' : '';
       document.getElementById('contagem').textContent =
-        `${dados.total.toLocaleString('pt-BR')} registro(s)` +
+        `${dados.total.toLocaleString('pt-BR')} registro(s)${rotuloFiltro}` +
         (termoBusca ? ` para "${termoBusca}"` : '');
 
       totalPaginas = dados.totalPages;
@@ -152,6 +155,7 @@
     async function carregar() {
       const params = new URLSearchParams({ page: paginaAtual });
       if (termoBusca) params.set('q', termoBusca);
+      if (filtroStatus) params.set('status', filtroStatus);
 
       const res = await apiFetch(`/api/webmail/accounts?${params}`);
       if (!res) return;
@@ -190,6 +194,18 @@
         paginaAtual++;
         carregar();
       }
+    });
+
+    // clicar num card filtra a tabela por status; "cadastrados" mostra todos
+    document.querySelectorAll('.stat-filtro').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        document.querySelectorAll('.stat-filtro').forEach((b) => b.classList.remove('active'));
+        botao.classList.add('active');
+
+        filtroStatus = botao.dataset.status;
+        paginaAtual = 1;
+        carregar();
+      });
     });
 
     carregarStats();

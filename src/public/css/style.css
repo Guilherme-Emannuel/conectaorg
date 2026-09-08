@@ -439,6 +439,24 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-lg);
 }
 
+/* cards clicáveis (ex.: filtros da página Webmails) */
+button.stat-filtro {
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  opacity: 0.6;
+  outline-offset: 3px;
+}
+
+button.stat-filtro:hover {
+  opacity: 0.85;
+}
+
+button.stat-filtro.active {
+  opacity: 1;
+  box-shadow: var(--shadow-lg), 0 0 0 3px color-mix(in srgb, #fff 55%, transparent);
+}
+
 .stats-grid .card .muted {
   color: color-mix(in srgb, #fff 82%, transparent);
   font-size: 12.5px;
