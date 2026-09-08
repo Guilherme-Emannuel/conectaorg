@@ -10,6 +10,10 @@ const mysql = require('mysql2/promise');
 
 let pool = null;
 
+// TTL do cache em memória (nomes e estatísticas): protege o servidor de
+// e-mail de ser consultado repetidamente — nunca escreve nada nele.
+const CACHE_MS = 5 * 60 * 1000;
+
 function configurado() {
   return Boolean(
     process.env.DB_EMAILS_HOST &&
@@ -34,14 +38,23 @@ function getPool() {
   return pool;
 }
 
-// GET dos 3 números da aba Webmails — total, ativados e desativados
+// GET dos 3 números da aba Webmails — total, ativados e desativados. Cacheado.
+let cacheStats = null;
+let cacheStatsEm = 0;
+
 async function estatisticas() {
+  const agora = Date.now();
+  if (cacheStats && agora - cacheStatsEm < CACHE_MS) return cacheStats;
+
   const [[{ total, ativos }]] = await getPool().query(
     'SELECT COUNT(*) AS total, SUM(active = 1) AS ativos FROM mailbox'
   );
   const totalNum = Number(total);
   const ativosNum = Number(ativos) || 0;
-  return { total: totalNum, ativos: ativosNum, inativos: totalNum - ativosNum };
+
+  cacheStats = { total: totalNum, ativos: ativosNum, inativos: totalNum - ativosNum };
+  cacheStatsEm = agora;
+  return cacheStats;
 }
 
 function normalizarNome(nome) {
@@ -53,12 +66,10 @@ function normalizarNome(nome) {
     .trim();
 }
 
-// cache em memória (5 min): evita reconsultar a cada página carregada.
-// Não escreve nada no banco de e-mails, só reduz o número de SELECTs.
+// cache do mapa nome -> e-mail: evita reconsultar a cada página carregada.
 let cacheMapa = null;
 let cacheEm = 0;
 let cachePromise = null;
-const CACHE_MS = 5 * 60 * 1000;
 
 async function mapaPorNome() {
   const agora = Date.now();
