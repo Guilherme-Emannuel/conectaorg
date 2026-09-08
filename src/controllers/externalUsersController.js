@@ -3,6 +3,7 @@ const {
   consultarUsuariosExternos,
   mapaRotulos,
 } = require('../lib/externalDb');
+const emailsDb = require('../lib/emailsDb');
 
 // GET /api/external-users?q=...&page=N — banco externo, somente leitura (ADMIN)
 async function listar(req, res) {
@@ -21,6 +22,21 @@ async function listar(req, res) {
     const columns = resultado.rows.length ? Object.keys(resultado.rows[0]) : [];
     const rotulos = mapaRotulos();
     const labels = columns.map((c) => rotulos[c] || c);
+
+    // cruza com o banco de e-mails pelo NOME (leitura apenas; nada é
+    // alterado em nenhum dos dois bancos)
+    if (emailsDb.configurado()) {
+      const colunaNome = columns.find((c) => c.toLowerCase() === 'nome');
+      if (colunaNome) {
+        await Promise.all(
+          resultado.rows.map(async (linha) => {
+            const encontrado = await emailsDb.buscarPorNome(linha[colunaNome]);
+            linha.__webmail = encontrado ? encontrado.username : null;
+          })
+        );
+      }
+    }
+
     res.json({ columns, labels, ...resultado });
   } catch (err) {
     console.error('Erro na consulta externa:', err.message);
