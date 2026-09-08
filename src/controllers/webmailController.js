@@ -31,6 +31,7 @@ async function accounts(req, res) {
     const resultado = await listarContas({
       q: req.query.q || '',
       page: req.query.page || 1,
+      status: req.query.status || '',
     });
     res.json(resultado);
   } catch (err) {

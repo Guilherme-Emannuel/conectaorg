@@ -117,17 +117,24 @@ const PAGE_SIZE = 50;
 
 // Lista paginada das contas de e-mail (aba Webmails). Só as colunas
 // necessárias para exibição — NUNCA seleciona password/token/totp_secret.
-async function listarContas({ q = '', page = 1 } = {}) {
+// status: 'ativo' | 'inativo' | '' (todos) — filtro dos cards clicáveis.
+async function listarContas({ q = '', page = 1, status = '' } = {}) {
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
   const offset = (paginaAtual - 1) * PAGE_SIZE;
 
-  let where = '';
+  const condicoes = [];
   const params = [];
   if (termo) {
-    where = ' WHERE (m.username LIKE ? OR m.name LIKE ?)';
+    condicoes.push('(m.username LIKE ? OR m.name LIKE ?)');
     params.push(`%${termo}%`, `%${termo}%`);
   }
+  if (status === 'ativo') {
+    condicoes.push('m.active = 1');
+  } else if (status === 'inativo') {
+    condicoes.push('m.active = 0');
+  }
+  const where = condicoes.length ? ` WHERE ${condicoes.join(' AND ')}` : '';
 
   const sqlDados = `
     SELECT
