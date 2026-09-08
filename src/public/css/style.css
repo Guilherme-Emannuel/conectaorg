@@ -512,6 +512,16 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--success-900);
 }
 
+.role-badge.ativo {
+  background: var(--success-50);
+  color: var(--success-900);
+}
+
+.role-badge.inativo {
+  background: var(--danger-50);
+  color: var(--danger-900);
+}
+
 .data-table .nowrap {
   white-space: nowrap;
 }
@@ -611,61 +621,71 @@ h1, h2, h3, h4, h5, h6 {
   outline-offset: 0;
 }
 
-/* ---------- Abas laterais (ex.: página Usuários) ---------- */
-.tabs-layout {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
+/* ---------- Flyout do menu lateral (itens com submenu, ex.: Usuários) ---------- */
+.nav-item-wrap {
+  position: relative;
 }
 
-.tabs-side {
-  display: flex;
+button.nav-item {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.nav-caret {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.nav-item-wrap:has(.nav-flyout.open) .nav-caret {
+  transform: rotate(90deg);
+}
+
+.nav-flyout {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 10px;
+  z-index: 30;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   width: 220px;
-  flex-shrink: 0;
 }
 
-.tab-item {
-  text-align: left;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+.nav-flyout.open {
+  display: flex;
+}
+
+.nav-flyout-item {
+  display: block;
   background: var(--surface);
   color: var(--text);
+  text-decoration: none;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
   font-family: var(--font-heading);
   font-weight: 600;
   font-size: 13.5px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
-.tab-item:hover {
-  border-color: var(--border-strong);
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+.nav-flyout-item:hover {
+  border-color: var(--primary-300);
+  background: var(--primary-50);
+  transform: translateX(2px);
 }
 
-.tab-item.active {
+.nav-flyout-item.active {
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
-}
-
-.tabs-content {
-  flex: 1;
-  min-width: 0;
-}
-
-@media (max-width: 720px) {
-  .tabs-layout {
-    flex-direction: column;
-  }
-
-  .tabs-side {
-    flex-direction: row;
-    width: 100%;
-    flex-wrap: wrap;
-  }
 }
 
 /* ---------- Notificações (toast) ---------- */

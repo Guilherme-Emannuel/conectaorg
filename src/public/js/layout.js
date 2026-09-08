@@ -5,7 +5,17 @@ const MENU_ITEMS = [
   { id: 'dashboard', label: 'Início', href: '/dashboard.html', icon: '🏠' },
   { id: 'organograma', label: 'Organograma', href: '/organograma.html', icon: '🏛️' },
   { id: 'atendimentos', label: 'Atendimentos', href: '#', icon: '💬', disabled: true },
-  { id: 'usuarios', label: 'Usuários', href: '/usuarios.html', icon: '👥', adminOnly: true },
+  {
+    id: 'usuarios',
+    label: 'Usuários',
+    icon: '👥',
+    adminOnly: true,
+    // item com submenu flutuante: não navega direto, abre o flyout ao lado
+    children: [
+      { id: 'usuarios-completos', label: 'Usuários Dados Completos', href: '/usuarios.html' },
+      { id: 'usuarios-webmails', label: 'Webmails', href: '/webmails.html' },
+    ],
+  },
   { id: 'admin', label: 'Administração', href: '/admin.html', icon: '⚙️', adminOnly: true },
 ];
 
@@ -39,6 +49,22 @@ function getCachedUser() {
   }
 }
 
+// acha o item (ou o filho) cujo id bate com a página atual — usado pro
+// título da topbar e pra saber se um item pai deve ficar destacado
+function encontrarPagina(activePage) {
+  for (const item of MENU_ITEMS) {
+    if (item.id === activePage) return item;
+    const filho = item.children?.find((c) => c.id === activePage);
+    if (filho) return filho;
+  }
+  return null;
+}
+
+function itemEstaAtivo(item, activePage) {
+  if (item.id === activePage) return true;
+  return Boolean(item.children?.some((c) => c.id === activePage));
+}
+
 function initLayout(activePage) {
   const user = getCachedUser();
 
@@ -51,9 +77,28 @@ function initLayout(activePage) {
     <nav class="sidebar-nav">
       ${items
         .map((item) => {
-          const active = item.id === activePage ? ' active' : '';
+          const active = itemEstaAtivo(item, activePage) ? ' active' : '';
           const disabled = item.disabled ? ' disabled' : '';
           const badge = item.disabled ? '<span class="badge">em breve</span>' : '';
+
+          if (item.children) {
+            return `
+              <div class="nav-item-wrap">
+                <button type="button" class="nav-item${active}" data-flyout="${item.id}">
+                  <span class="nav-icon">${item.icon}</span>${item.label}
+                  <span class="nav-caret">▸</span>
+                </button>
+                <div class="nav-flyout" id="flyout-${item.id}">
+                  ${item.children
+                    .map(
+                      (filho) =>
+                        `<a class="nav-flyout-item${filho.id === activePage ? ' active' : ''}" href="${filho.href}">${filho.label}</a>`
+                    )
+                    .join('')}
+                </div>
+              </div>`;
+          }
+
           return `<a class="nav-item${active}${disabled}" href="${item.href}">
             <span class="nav-icon">${item.icon}</span>${item.label}${badge}
           </a>`;
@@ -62,10 +107,23 @@ function initLayout(activePage) {
     </nav>
   `;
 
+  // abre/fecha o flyout ao clicar no item pai; fecha ao clicar fora dele
+  document.querySelectorAll('[data-flyout]').forEach((botao) => {
+    botao.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const flyout = document.getElementById(`flyout-${botao.dataset.flyout}`);
+      const vaiAbrir = !flyout.classList.contains('open');
+      document.querySelectorAll('.nav-flyout.open').forEach((f) => f.classList.remove('open'));
+      if (vaiAbrir) flyout.classList.add('open');
+    });
+  });
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.nav-flyout.open').forEach((f) => f.classList.remove('open'));
+  });
+
   document.getElementById('topbar').innerHTML = `
-    <span class="page-title">${
-      MENU_ITEMS.find((i) => i.id === activePage)?.label || ''
-    }</span>
+    <span class="page-title">${encontrarPagina(activePage)?.label || ''}</span>
     <div class="user-area">
       <span id="user-name">${user.name || ''}${user.role ? ` (${user.role})` : ''}</span>
       <button class="btn-logout" onclick="logout()">Sair</button>
