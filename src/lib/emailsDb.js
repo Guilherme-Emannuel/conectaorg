@@ -33,6 +33,9 @@ function getPool() {
       waitForConnections: true,
       connectionLimit: 3,
       connectTimeout: 8000,
+      // datas como texto puro, sem conversão de fuso (mesmo motivo do
+      // banco de RH: evita deslocar o dia exibido)
+      dateStrings: true,
     });
   }
   return pool;
@@ -110,4 +113,53 @@ async function buscarPorNome(nome) {
   return mapa.get(normalizarNome(nome)) || null;
 }
 
-module.exports = { configurado, estatisticas, buscarPorNome };
+const PAGE_SIZE = 50;
+
+// Lista paginada das contas de e-mail (aba Webmails). Só as colunas
+// necessárias para exibição — NUNCA seleciona password/token/totp_secret.
+async function listarContas({ q = '', page = 1 } = {}) {
+  const termo = String(q).trim().slice(0, 100);
+  const paginaAtual = Math.max(1, Number(page) || 1);
+  const offset = (paginaAtual - 1) * PAGE_SIZE;
+
+  let where = '';
+  const params = [];
+  if (termo) {
+    where = ' WHERE (m.username LIKE ? OR m.name LIKE ?)';
+    params.push(`%${termo}%`, `%${termo}%`);
+  }
+
+  const sqlDados = `
+    SELECT
+      m.username,
+      m.name,
+      m.active,
+      m.last_login_date,
+      m.quota AS quota_limite,
+      m.created,
+      m.modified,
+      COALESCE(q2.bytes, 0) AS quota_usado
+    FROM mailbox m
+    LEFT JOIN quota2 q2 ON q2.username = m.username
+    ${where}
+    ORDER BY m.name
+    LIMIT ${PAGE_SIZE} OFFSET ${offset}`;
+
+  const sqlTotal = `SELECT COUNT(*) AS total FROM mailbox m${where}`;
+
+  const p = getPool();
+  const [[rows], [[{ total }]]] = await Promise.all([
+    p.query(sqlDados, params),
+    p.query(sqlTotal, params),
+  ]);
+
+  return {
+    rows,
+    total,
+    page: paginaAtual,
+    pageSize: PAGE_SIZE,
+    totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  };
+}
+
+module.exports = { configurado, estatisticas, buscarPorNome, listarContas };
