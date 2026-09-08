@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webmails — ConectaOrg</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="container">
+        <div class="card">
+          <h3>Webmails</h3>
+          <p class="muted">
+            Dados consultados em modo somente leitura do servidor de e-mail.
+            Nenhuma informação pode ser alterada por esta tela.
+          </p>
+        </div>
+
+        <div id="aviso" class="card" style="display:none">
+          <p class="muted" id="aviso-texto"></p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="card">
+            <p class="muted">Webmails cadastrados</p>
+            <div class="stat-value" id="wm-total">—</div>
+          </div>
+          <div class="card">
+            <p class="muted">Ativados</p>
+            <div class="stat-value" id="wm-ativos">—</div>
+          </div>
+          <div class="card">
+            <p class="muted">Desativados</p>
+            <div class="stat-value" id="wm-inativos">—</div>
+          </div>
+        </div>
+
+        <div class="card" id="dados-card" style="display:none">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <input type="search" id="filtro" class="search-input"
+              placeholder="Buscar por nome ou e-mail...">
+            <span class="muted" id="contagem" style="font-size:12.5px"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Webmail</th>
+                  <th>Nome</th>
+                  <th>Status</th>
+                  <th>Último acesso</th>
+                  <th>Armazenamento</th>
+                  <th>Criado em</th>
+                  <th>Alterado em</th>
+                </tr>
+              </thead>
+              <tbody id="linhas"></tbody>
+            </table>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
+            <button class="btn-sm" id="pag-anterior">« Anterior</button>
+            <span class="muted" id="pag-info" style="font-size:12.5px"></span>
+            <button class="btn-sm" id="pag-proxima">Próxima »</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/layout.js"></script>
+  <script>
+    initLayout('usuarios-webmails');
+
+    function esc(texto) {
+      const div = document.createElement('div');
+      div.textContent = texto ?? '';
+      return div.innerHTML;
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '—';
+      const m = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+      if (!m) return valor;
+      const data = `${m[3]}/${m[2]}/${m[1]}`;
+      const hora = m[4] && `${m[4]}:${m[5]}` !== '00:00' ? ` ${m[4]}:${m[5]}` : '';
+      return data + hora;
+    }
+
+    function formatarBytes(bytes) {
+      const n = Number(bytes);
+      if (!n || n <= 0) return '0 B';
+      const unidades = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.min(unidades.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+      const valor = n / Math.pow(1024, i);
+      return `${valor.toFixed(i === 0 ? 0 : 1)} ${unidades[i]}`;
+    }
+
+    async function carregarStats() {
+      const res = await apiFetch('/api/webmail/stats');
+      if (!res || !res.ok) return;
+      const dados = await res.json();
+      document.getElementById('wm-total').textContent = dados.total.toLocaleString('pt-BR');
+      document.getElementById('wm-ativos').textContent = dados.ativos.toLocaleString('pt-BR');
+      document.getElementById('wm-inativos').textContent = dados.inativos.toLocaleString('pt-BR');
+    }
+
+    let paginaAtual = 1;
+    let termoBusca = '';
+    let totalPaginas = 1;
+
+    function linhaHtml(conta) {
+      const ativo = Number(conta.active) === 1;
+      const badge = ativo
+        ? '<span class="role-badge ativo">Ativado</span>'
+        : '<span class="role-badge inativo">Desativado</span>';
+      const armazenamento = `${formatarBytes(conta.quota_usado)} de ${
+        conta.quota_limite ? formatarBytes(conta.quota_limite) : 'sem limite'
+      }`;
+
+      return `<tr>
+        <td class="nowrap">${esc(conta.username)}</td>
+        <td>${esc(conta.name)}</td>
+        <td>${badge}</td>
+        <td class="nowrap">${formatarData(conta.last_login_date)}</td>
+        <td class="nowrap">${esc(armazenamento)}</td>
+        <td class="nowrap">${formatarData(conta.created)}</td>
+        <td class="nowrap">${formatarData(conta.modified)}</td>
+      </tr>`;
+    }
+
+    function renderizar(dados) {
+      document.getElementById('linhas').innerHTML =
+        dados.rows.map(linhaHtml).join('') ||
+        '<tr><td colspan="7" class="muted">Nenhum resultado.</td></tr>';
+
+      document.getElementById('contagem').textContent =
+        `${dados.total.toLocaleString('pt-BR')} registro(s)` +
+        (termoBusca ? ` para "${termoBusca}"` : '');
+
+      totalPaginas = dados.totalPages;
+      document.getElementById('pag-info').textContent =
+        `Página ${dados.page} de ${dados.totalPages}`;
+      document.getElementById('pag-anterior').disabled = dados.page <= 1;
+      document.getElementById('pag-proxima').disabled = dados.page >= dados.totalPages;
+    }
+
+    async function carregar() {
+      const params = new URLSearchParams({ page: paginaAtual });
+      if (termoBusca) params.set('q', termoBusca);
+
+      const res = await apiFetch(`/api/webmail/accounts?${params}`);
+      if (!res) return;
+
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({}));
+        document.getElementById('aviso-texto').textContent =
+          error || 'Erro ao consultar os dados.';
+        document.getElementById('aviso').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('dados-card').style.display = 'block';
+      renderizar(await res.json());
+    }
+
+    let buscaTimer = null;
+    document.getElementById('filtro').addEventListener('input', (e) => {
+      clearTimeout(buscaTimer);
+      buscaTimer = setTimeout(() => {
+        termoBusca = e.target.value.trim();
+        paginaAtual = 1;
+        carregar();
+      }, 350);
+    });
+
+    document.getElementById('pag-anterior').addEventListener('click', () => {
+      if (paginaAtual > 1) {
+        paginaAtual--;
+        carregar();
+      }
+    });
+
+    document.getElementById('pag-proxima').addEventListener('click', () => {
+      if (paginaAtual < totalPaginas) {
+        paginaAtual++;
+        carregar();
+      }
+    });
+
+    carregarStats();
+    carregar();
+  </script>
+</body>
+</html>
