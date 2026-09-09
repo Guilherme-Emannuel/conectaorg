@@ -4,6 +4,7 @@
 require('dotenv').config();
 
 const prisma = require('../src/lib/prisma');
+const { padronizarNomeGestor } = require('../src/lib/nomes');
 const dados = require('../data/organograma.json');
 
 async function criarUnidade(node, parentId, ordem) {
@@ -11,7 +12,7 @@ async function criarUnidade(node, parentId, ordem) {
     data: {
       nome: node.nome,
       sigla: node.sigla || null,
-      gestor: node.gestor || null,
+      gestor: padronizarNomeGestor(node.gestor) || null,
       ordem,
       parentId,
     },

@@ -1,11 +1,5 @@
 const prisma = require('../lib/prisma');
-
-// nomes que não representam um gestor real
-const SEM_GESTOR = ['VACANTE', 'NÃO INFORMADO', 'NÃO ADICIONADO'];
-
-function gestorValido(nome) {
-  return nome && nome.trim() && !SEM_GESTOR.includes(nome.trim().toUpperCase());
-}
+const { gestorValido, padronizarNomeGestor } = require('../lib/nomes');
 
 // GET /api/organograma — árvore completa montada em memória
 async function tree(req, res) {
@@ -89,9 +83,12 @@ async function update(req, res) {
     novaOrdem = await prisma.orgUnit.count({ where: { parentId: destinoId } });
   }
 
-  // Troca de gestor: exige documentação ANTES de gravar qualquer coisa
-  const gestorNovo = gestor?.trim() || '';
-  const gestorMudou = gestorNovo !== (existe.gestor || '');
+  // Troca de gestor: exige documentação ANTES de gravar qualquer coisa.
+  // Compara já padronizado dos dois lados, para diferença só de
+  // maiúsculas/minúsculas não contar como troca de gestor.
+  const gestorNovo = padronizarNomeGestor(gestor);
+  const gestorAntigo = padronizarNomeGestor(existe.gestor);
+  const gestorMudou = gestorNovo !== gestorAntigo;
   const precisaDocumentar = gestorMudou && gestorValido(gestorNovo);
 
   if (precisaDocumentar) {
@@ -118,7 +115,7 @@ async function update(req, res) {
     data: {
       nome: nome.trim(),
       sigla: sigla?.trim() || null,
-      gestor: gestor?.trim() || null,
+      gestor: gestorNovo || null,
       foto: foto !== undefined ? foto || null : existe.foto,
       fotoVisivel: typeof fotoVisivel === 'boolean' ? fotoVisivel : existe.fotoVisivel,
       parentId: novoParentId,
@@ -131,11 +128,11 @@ async function update(req, res) {
     // garante que o gestor ANTERIOR fique registrado, mesmo que ninguém
     // tenha aberto a janelinha de histórico antes desta troca (bug antigo)
     const totalHistorico = await prisma.gestorHistory.count({ where: { orgUnitId: id } });
-    if (totalHistorico === 0 && gestorValido(existe.gestor)) {
+    if (totalHistorico === 0 && gestorValido(gestorAntigo)) {
       await prisma.gestorHistory.create({
         data: {
           orgUnitId: id,
-          nome: existe.gestor.trim(),
+          nome: gestorAntigo,
           atual: false,
           inicio: existe.createdAt,
         },
@@ -180,7 +177,7 @@ async function gestores(req, res) {
     await prisma.gestorHistory.create({
       data: {
         orgUnitId: id,
-        nome: unidade.gestor.trim(),
+        nome: padronizarNomeGestor(unidade.gestor),
         atual: true,
         inicio: unidade.createdAt,
       },
@@ -244,7 +241,7 @@ async function create(req, res) {
     data: {
       nome: nome.trim(),
       sigla: sigla?.trim() || null,
-      gestor: gestor?.trim() || null,
+      gestor: padronizarNomeGestor(gestor) || null,
       fotoVisivel: typeof fotoVisivel === 'boolean' ? fotoVisivel : true,
       parentId: paiId,
       ordem: await prisma.orgUnit.count({ where: { parentId: paiId } }),
