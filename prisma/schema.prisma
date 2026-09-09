@@ -54,9 +54,10 @@ model GestorHistory {
   nome      String
   inicio    DateTime @default(now()) // data em que foi adicionado como gestor
   atual     Boolean  @default(false)
-  docTipo   String?  // 'CI' ou 'OFICIO'
-  docNumero String?
-  docUrl    String?  @db.Text
+  docTipo      String?  // 'CI', 'OFICIO' ou 'OUTROS'
+  docNumero    String?
+  docUrl       String?  @db.Text
+  docDescricao String?  @db.Text // usado quando docTipo = 'OUTROS': como a troca foi solicitada
 
   @@map("gestor_history")
 }
