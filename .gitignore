@@ -34,3 +34,9 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Scripts e pastas de uso local, fora do escopo do repositório
+scripts/
+backup/
+*.sql
+*.sql.gz
