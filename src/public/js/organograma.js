@@ -381,11 +381,14 @@ function abrirModalEdicao(id) {
     };
   }
 
-  document.getElementById('edit-salvar').onclick = async () => {
+  document.getElementById('edit-salvar').onclick = () => {
+    const gestorAntigo = node.gestor || '';
+    const gestorNovoValor = document.getElementById('edit-gestor').value.trim();
+
     const payload = {
       nome: document.getElementById('edit-nome').value,
       sigla: document.getElementById('edit-sigla').value,
-      gestor: document.getElementById('edit-gestor').value,
+      gestor: gestorNovoValor,
       fotoVisivel: document.getElementById('edit-foto-visivel').checked,
     };
     if (fotoEditada !== undefined) payload.foto = fotoEditada;
@@ -393,41 +396,142 @@ function abrirModalEdicao(id) {
     const seletorPai = document.getElementById('edit-parent');
     if (seletorPai) payload.parentId = Number(seletorPai.value);
 
-    const res = await apiFetch(`/api/organograma/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-
-    if (!res || !res.ok) {
-      const erro = res ? (await res.json()).error : 'Erro ao salvar.';
-      alert(erro || 'Erro ao salvar.');
+    // trocar o gestor exige confirmação + documentação obrigatória
+    if (gestorNovoValor !== gestorAntigo) {
+      abrirConfirmacaoTrocaGestor(id, node, gestorAntigo, gestorNovoValor, payload);
       return;
     }
 
-    const salvo = await res.json();
-    Object.assign(node, {
-      nome: salvo.nome,
-      sigla: salvo.sigla,
-      gestor: salvo.gestor,
-      foto: salvo.foto,
-      fotoVisivel: salvo.fotoVisivel,
-    });
+    salvarEdicao(id, node, payload);
+  };
 
-    // se o setor superior mudou, move o nó na árvore local
-    if (node._pai && salvo.parentId !== node._pai.id) {
-      const novoPai = porId.get(salvo.parentId);
-      if (novoPai) {
-        node._pai.children = node._pai.children.filter((f) => f !== node);
-        novoPai.children.push(node);
-        node._pai = novoPai;
-        expanded.add(novoPai.id); // mostra o setor no novo lugar
+  overlay.classList.add('open');
+}
+
+// grava a edição do setor (com ou sem troca de gestor já validada/documentada)
+async function salvarEdicao(id, node, payload) {
+  const res = await apiFetch(`/api/organograma/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+  if (!res || !res.ok) {
+    const erro = res ? (await res.json()).error : 'Erro ao salvar.';
+    alert(erro || 'Erro ao salvar.');
+    return;
+  }
+
+  const salvo = await res.json();
+  Object.assign(node, {
+    nome: salvo.nome,
+    sigla: salvo.sigla,
+    gestor: salvo.gestor,
+    foto: salvo.foto,
+    fotoVisivel: salvo.fotoVisivel,
+  });
+
+  // se o setor superior mudou, move o nó na árvore local
+  if (node._pai && salvo.parentId !== node._pai.id) {
+    const novoPai = porId.get(salvo.parentId);
+    if (novoPai) {
+      node._pai.children = node._pai.children.filter((f) => f !== node);
+      novoPai.children.push(node);
+      node._pai = novoPai;
+      expanded.add(novoPai.id); // mostra o setor no novo lugar
+    }
+  }
+
+  fecharModal();
+  render();
+  if (modo === 'tree') centerOnNode(node.id);
+  mostrarToast(`"${salvo.nome}" foi atualizado com sucesso`);
+}
+
+// ---------- Confirmação de troca de gestor (documentação obrigatória) ----------
+function abrirConfirmacaoTrocaGestor(id, node, gestorAntigo, gestorNovo, payloadBase) {
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <h3>Confirmar troca de gestor</h3>
+      <p class="muted" style="margin-top:-10px;margin-bottom:14px">${esc(node.nome)}</p>
+
+      <div class="confirm-box" style="background:var(--primary-50, #eff6ff);border-color:var(--border)">
+        <p style="color:var(--text)">
+          Trocar o gestor de <strong>${esc(gestorAntigo || 'Vacante')}</strong>
+          para <strong>${esc(gestorNovo || 'Vacante')}</strong>?
+        </p>
+      </div>
+
+      <div class="field" style="margin-top:15px">
+        <label for="troca-doc-tipo">Documentação da alteração</label>
+        <select id="troca-doc-tipo">
+          <option value="CI">C.I</option>
+          <option value="OFICIO">Ofício</option>
+          <option value="OUTROS">Outros</option>
+        </select>
+      </div>
+
+      <div id="troca-doc-padrao">
+        <div class="field">
+          <label for="troca-doc-numero">Número</label>
+          <input id="troca-doc-numero" placeholder="Ex.: 123/2026">
+        </div>
+        <div class="field">
+          <label for="troca-doc-url">URL do documento</label>
+          <input id="troca-doc-url" placeholder="https://...">
+        </div>
+      </div>
+
+      <div id="troca-doc-outros" style="display:none">
+        <div class="field">
+          <label for="troca-doc-descricao">Como foi solicitada a alteração?</label>
+          <textarea id="troca-doc-descricao" rows="3"
+            placeholder="Explique como a troca foi solicitada..."
+            style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font:inherit;resize:vertical"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="troca-cancelar">Cancelar</button>
+        <button type="button" class="btn-primary" id="troca-confirmar">Confirmar troca</button>
+      </div>
+    </div>`;
+
+  const selectTipo = document.getElementById('troca-doc-tipo');
+  const blocoPadrao = document.getElementById('troca-doc-padrao');
+  const blocoOutros = document.getElementById('troca-doc-outros');
+
+  selectTipo.addEventListener('change', () => {
+    const outros = selectTipo.value === 'OUTROS';
+    blocoPadrao.style.display = outros ? 'none' : 'block';
+    blocoOutros.style.display = outros ? 'block' : 'none';
+  });
+
+  document.getElementById('troca-cancelar').onclick = fecharModal;
+
+  document.getElementById('troca-confirmar').onclick = () => {
+    const tipo = selectTipo.value;
+    const payload = { ...payloadBase, docTipo: tipo };
+
+    if (tipo === 'OUTROS') {
+      const descricao = document.getElementById('troca-doc-descricao').value.trim();
+      if (!descricao) {
+        alert('Explique como a alteração de gestor foi solicitada.');
+        return;
       }
+      payload.docDescricao = descricao;
+    } else {
+      const numero = document.getElementById('troca-doc-numero').value.trim();
+      let url = document.getElementById('troca-doc-url').value.trim();
+      if (!numero || !url) {
+        alert('Informe o número e a URL do documento.');
+        return;
+      }
+      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      payload.docNumero = numero;
+      payload.docUrl = url;
     }
 
-    fecharModal();
-    render();
-    if (modo === 'tree') centerOnNode(node.id);
-    mostrarToast(`"${salvo.nome}" foi atualizado com sucesso`);
+    salvarEdicao(id, node, payload);
   };
 
   overlay.classList.add('open');
@@ -471,10 +575,13 @@ async function abrirModalHistorico(id) {
 
   const { unidade, gestores } = await res.json();
 
+  const rotuloTipo = (tipo) =>
+    tipo === 'CI' ? 'C.I' : tipo === 'OFICIO' ? 'Ofício' : tipo === 'OUTROS' ? 'Outros' : '';
+
   const docLabel = (g) =>
     g.docTipo
-      ? `<span class="doc-label">${g.docTipo === 'CI' ? 'C.I' : 'Ofício'}${
-          g.docNumero ? ` nº ${esc(g.docNumero)}` : ''
+      ? `<span class="doc-label">${rotuloTipo(g.docTipo)}${
+          g.docTipo !== 'OUTROS' && g.docNumero ? ` nº ${esc(g.docNumero)}` : ''
         }</span>`
       : '';
 
@@ -494,20 +601,36 @@ async function abrirModalHistorico(id) {
         ${docLabel(g)}
         <button class="btn-sm" data-editdoc="${g.id}">✎ documento</button>
       </div>
+      ${g.docDescricao ? `<div class="hist-descricao">${esc(g.docDescricao)}</div>` : ''}
       <div class="hist-form" id="hist-form-${g.id}" style="display:none">
         <div class="field">
-          <label>URL do documento</label>
-          <input id="doc-url-${g.id}" value="${esc(g.docUrl || '')}" placeholder="https://...">
-        </div>
-        <div class="hist-form-linha">
+          <label>Tipo de documento</label>
           <select id="doc-tipo-${g.id}">
             <option value="" ${!g.docTipo ? 'selected' : ''}>Sem tipo</option>
             <option value="CI" ${g.docTipo === 'CI' ? 'selected' : ''}>C.I</option>
             <option value="OFICIO" ${g.docTipo === 'OFICIO' ? 'selected' : ''}>Ofício</option>
+            <option value="OUTROS" ${g.docTipo === 'OUTROS' ? 'selected' : ''}>Outros</option>
           </select>
-          <input id="doc-num-${g.id}" value="${esc(g.docNumero || '')}" placeholder="Número (ex.: 123/2026)">
-          <button class="btn-primary" data-salvardoc="${g.id}">Salvar</button>
         </div>
+        <div id="hist-doc-padrao-${g.id}" style="${g.docTipo === 'OUTROS' ? 'display:none' : ''}">
+          <div class="field">
+            <label>Número</label>
+            <input id="doc-num-${g.id}" value="${esc(g.docNumero || '')}" placeholder="Número (ex.: 123/2026)">
+          </div>
+          <div class="field">
+            <label>URL do documento</label>
+            <input id="doc-url-${g.id}" value="${esc(g.docUrl || '')}" placeholder="https://...">
+          </div>
+        </div>
+        <div id="hist-doc-outros-${g.id}" style="${g.docTipo === 'OUTROS' ? '' : 'display:none'}">
+          <div class="field">
+            <label>Como foi solicitada a alteração?</label>
+            <textarea id="doc-desc-${g.id}" rows="3"
+              placeholder="Explique como a troca foi solicitada..."
+              style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);font:inherit;resize:vertical">${esc(g.docDescricao || '')}</textarea>
+          </div>
+        </div>
+        <button class="btn-primary" data-salvardoc="${g.id}">Salvar</button>
       </div>
     </div>`;
 
@@ -533,19 +656,34 @@ async function abrirModalHistorico(id) {
     };
   });
 
+  // alterna entre os campos padrão (número/URL) e o texto livre de "Outros"
+  overlay.querySelectorAll('[id^="doc-tipo-"]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const gid = sel.id.replace('doc-tipo-', '');
+      const outros = sel.value === 'OUTROS';
+      document.getElementById(`hist-doc-padrao-${gid}`).style.display = outros ? 'none' : 'block';
+      document.getElementById(`hist-doc-outros-${gid}`).style.display = outros ? 'block' : 'none';
+    });
+  });
+
   overlay.querySelectorAll('[data-salvardoc]').forEach((btn) => {
     btn.onclick = async () => {
       const gid = btn.dataset.salvardoc;
-      let url = document.getElementById(`doc-url-${gid}`).value.trim();
-      if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+      const tipo = document.getElementById(`doc-tipo-${gid}`).value || null;
+      const payload = { docTipo: tipo };
+
+      if (tipo === 'OUTROS') {
+        payload.docDescricao = document.getElementById(`doc-desc-${gid}`).value;
+      } else {
+        let url = document.getElementById(`doc-url-${gid}`).value.trim();
+        if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+        payload.docUrl = url;
+        payload.docNumero = document.getElementById(`doc-num-${gid}`).value;
+      }
 
       const resp = await apiFetch(`/api/organograma/gestores/${gid}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          docUrl: url,
-          docTipo: document.getElementById(`doc-tipo-${gid}`).value || null,
-          docNumero: document.getElementById(`doc-num-${gid}`).value,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!resp || !resp.ok) {
