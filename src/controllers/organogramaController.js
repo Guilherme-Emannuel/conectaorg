@@ -28,10 +28,23 @@ async function tree(req, res) {
   res.json(raiz);
 }
 
+const TIPOS_DOC = ['CI', 'OFICIO', 'OUTROS'];
+
 // PUT /api/organograma/:id — edita uma unidade (somente ADMIN)
 async function update(req, res) {
   const id = Number(req.params.id);
-  const { nome, sigla, gestor, foto, fotoVisivel, parentId } = req.body;
+  const {
+    nome,
+    sigla,
+    gestor,
+    foto,
+    fotoVisivel,
+    parentId,
+    docTipo,
+    docNumero,
+    docUrl,
+    docDescricao,
+  } = req.body;
 
   if (!nome || !nome.trim()) {
     return res.status(400).json({ error: 'O nome do setor é obrigatório.' });
@@ -76,6 +89,30 @@ async function update(req, res) {
     novaOrdem = await prisma.orgUnit.count({ where: { parentId: destinoId } });
   }
 
+  // Troca de gestor: exige documentação ANTES de gravar qualquer coisa
+  const gestorNovo = gestor?.trim() || '';
+  const gestorMudou = gestorNovo !== (existe.gestor || '');
+  const precisaDocumentar = gestorMudou && gestorValido(gestorNovo);
+
+  if (precisaDocumentar) {
+    if (!TIPOS_DOC.includes(docTipo)) {
+      return res.status(400).json({
+        error: 'Para trocar o gestor, informe a documentação (C.I, Ofício ou Outros).',
+      });
+    }
+    if (docTipo === 'OUTROS') {
+      if (!docDescricao || !docDescricao.trim()) {
+        return res
+          .status(400)
+          .json({ error: 'Explique como a troca de gestor foi solicitada.' });
+      }
+    } else if (!docNumero?.trim() || !docUrl?.trim()) {
+      return res
+        .status(400)
+        .json({ error: 'Informe o número e a URL do documento da troca de gestor.' });
+    }
+  }
+
   const unidade = await prisma.orgUnit.update({
     where: { id },
     data: {
@@ -90,15 +127,37 @@ async function update(req, res) {
   });
 
   // registra a troca de gestor no histórico
-  const gestorNovo = gestor?.trim() || '';
-  if (gestorNovo !== (existe.gestor || '')) {
+  if (gestorMudou) {
+    // garante que o gestor ANTERIOR fique registrado, mesmo que ninguém
+    // tenha aberto a janelinha de histórico antes desta troca (bug antigo)
+    const totalHistorico = await prisma.gestorHistory.count({ where: { orgUnitId: id } });
+    if (totalHistorico === 0 && gestorValido(existe.gestor)) {
+      await prisma.gestorHistory.create({
+        data: {
+          orgUnitId: id,
+          nome: existe.gestor.trim(),
+          atual: false,
+          inicio: existe.createdAt,
+        },
+      });
+    }
+
     await prisma.gestorHistory.updateMany({
       where: { orgUnitId: id, atual: true },
       data: { atual: false },
     });
-    if (gestorValido(gestorNovo)) {
+
+    if (precisaDocumentar) {
       await prisma.gestorHistory.create({
-        data: { orgUnitId: id, nome: gestorNovo, atual: true },
+        data: {
+          orgUnitId: id,
+          nome: gestorNovo,
+          atual: true,
+          docTipo,
+          docNumero: docTipo === 'OUTROS' ? null : docNumero.trim(),
+          docUrl: docTipo === 'OUTROS' ? null : docUrl.trim(),
+          docDescricao: docTipo === 'OUTROS' ? docDescricao.trim() : null,
+        },
       });
     }
   }
@@ -139,23 +198,24 @@ async function gestores(req, res) {
 // PUT /api/organograma/gestores/:histId — documento do gestor (somente ADMIN)
 async function updateGestorDoc(req, res) {
   const histId = Number(req.params.histId);
-  const { docTipo, docNumero, docUrl } = req.body;
+  const { docTipo, docNumero, docUrl, docDescricao } = req.body;
 
   const existe = await prisma.gestorHistory.findUnique({ where: { id: histId } });
   if (!existe) {
     return res.status(404).json({ error: 'Registro de gestor não encontrado.' });
   }
 
-  if (docTipo && !['CI', 'OFICIO'].includes(docTipo)) {
-    return res.status(400).json({ error: 'Tipo de documento deve ser C.I ou Ofício.' });
+  if (docTipo && !TIPOS_DOC.includes(docTipo)) {
+    return res.status(400).json({ error: 'Tipo de documento deve ser C.I, Ofício ou Outros.' });
   }
 
   const registro = await prisma.gestorHistory.update({
     where: { id: histId },
     data: {
       docTipo: docTipo || null,
-      docNumero: docNumero?.trim() || null,
-      docUrl: docUrl?.trim() || null,
+      docNumero: docTipo === 'OUTROS' ? null : docNumero?.trim() || null,
+      docUrl: docTipo === 'OUTROS' ? null : docUrl?.trim() || null,
+      docDescricao: docTipo === 'OUTROS' ? docDescricao?.trim() || null : null,
     },
   });
 
