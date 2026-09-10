@@ -343,7 +343,13 @@
       const inicio = document.getElementById('wm-periodo-inicio').value;
       const fim = document.getElementById('wm-periodo-fim').value;
       if (!inicio || !fim) {
-        alert('Escolha as duas datas do período.');
+        // já tem uma faixa rápida (30/60/90/180) aplicada — nada a fazer,
+        // só fecha a janelinha em vez de exigir datas à toa
+        if (inativoDias) {
+          periodoPicker.style.display = 'none';
+          return;
+        }
+        alert('Escolha as duas datas do período, ou use uma faixa rápida acima.');
         return;
       }
       limparPresetAtivo(); // período manual e faixa rápida não combinam
@@ -381,6 +387,10 @@
         filtroExtra = 'nuncaAcessado';
         paginaAtual = 1;
         carregar();
+
+        // a faixa rápida já aplica sozinha — fecha a janelinha, sem
+        // precisar de mais nenhuma ação (ex.: preencher datas)
+        periodoPicker.style.display = 'none';
       });
     });
 
