@@ -58,7 +58,7 @@
             <div class="stat-value" id="wm-nunca-acessado">—</div>
 
             <div class="periodo-picker" id="wm-periodo-picker" style="display:none">
-              <p class="muted periodo-secao-titulo">Faixas de inatividade</p>
+              <p class="muted periodo-secao-titulo">Acessados nos últimos...</p>
               <div class="periodo-presets" id="wm-preset-lista">
                 <button type="button" class="btn-preset" data-dias="30">30 dias</button>
                 <button type="button" class="btn-preset" data-dias="60">60 dias</button>
@@ -166,7 +166,7 @@
     let periodoAtivo = false;
     let periodoInicio = '';
     let periodoFim = '';
-    let inativoDias = 0; // 0 = nenhuma faixa rápida selecionada
+    let ultimosDias = 0; // 0 = nenhuma faixa rápida selecionada
 
     function linhaHtml(conta) {
       const ativo = Number(conta.active) === 1;
@@ -199,7 +199,7 @@
       else if (filtroExtra === 'semNome') rotuloFiltro = ' (sem nome)';
       else if (filtroExtra === 'nuncaAcessado') {
         if (periodoAtivo) rotuloFiltro = ' (acesso no período)';
-        else if (inativoDias) rotuloFiltro = ` (inativo há ${inativoDias}+ dias)`;
+        else if (ultimosDias) rotuloFiltro = ` (acessados nos últimos ${ultimosDias} dias)`;
         else rotuloFiltro = ' (nunca acessados)';
       }
       document.getElementById('contagem').textContent =
@@ -230,8 +230,8 @@
         if (periodoAtivo && periodoInicio && periodoFim) {
           params.set('acessoInicio', periodoInicio);
           params.set('acessoFim', periodoFim);
-        } else if (inativoDias) {
-          params.set('inativoDias', String(inativoDias));
+        } else if (ultimosDias) {
+          params.set('ultimosDias', String(ultimosDias));
         } else {
           params.set('nuncaAcessado', '1');
         }
@@ -334,7 +334,7 @@
     });
 
     function limparPresetAtivo() {
-      inativoDias = 0;
+      ultimosDias = 0;
       document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
     }
 
@@ -345,7 +345,7 @@
       if (!inicio || !fim) {
         // já tem uma faixa rápida (30/60/90/180) aplicada — nada a fazer,
         // só fecha a janelinha em vez de exigir datas à toa
-        if (inativoDias) {
+        if (ultimosDias) {
           periodoPicker.style.display = 'none';
           return;
         }
@@ -366,7 +366,7 @@
       carregar();
     });
 
-    // faixas rápidas de inatividade (30/60/90/180 dias)
+    // faixas rápidas: quem acessou nos últimos 30/60/90/180 dias
     document.querySelectorAll('.btn-preset').forEach((botao) => {
       botao.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -379,8 +379,9 @@
 
         document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
         botao.classList.add('active');
-        inativoDias = Number(botao.dataset.dias);
-        document.getElementById('wm-nunca-label').textContent = `Inativo há ${inativoDias}+ dias`;
+        ultimosDias = Number(botao.dataset.dias);
+        document.getElementById('wm-nunca-label').textContent =
+          `Acessados nos últimos ${ultimosDias} dias`;
 
         marcarCardAtivo(cardNuncaAcessado);
         filtroStatus = '';
