@@ -706,6 +706,55 @@ button.nav-item {
   color: #fff;
 }
 
+/* ---------- Lista de histórico (compartilhada: gestores, telefones...) ---------- */
+.hist-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 55vh;
+  overflow-y: auto;
+  margin-bottom: var(--space-3);
+}
+
+.hist-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  transition: background 0.15s ease;
+}
+
+.hist-item.atual {
+  border-color: var(--success);
+  background: var(--success-50);
+}
+
+.hist-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.badge-atual {
+  display: inline-flex;
+  background: var(--success);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+.hist-data {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
 /* ---------- Notificações (toast) ---------- */
 .toast-container {
   position: fixed;
