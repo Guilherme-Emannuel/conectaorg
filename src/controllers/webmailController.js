@@ -37,6 +37,7 @@ async function accounts(req, res) {
       acessoInicio: req.query.acessoInicio || '',
       acessoFim: req.query.acessoFim || '',
       ultimosDias: req.query.ultimosDias || 0,
+      maisDeDias: req.query.maisDeDias || 0,
     });
     res.json(resultado);
   } catch (err) {
