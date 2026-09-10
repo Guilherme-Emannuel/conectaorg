@@ -439,8 +439,9 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-lg);
 }
 
-/* cards clicáveis (ex.: filtros da página Webmails) */
-button.stat-filtro {
+/* cards clicáveis (ex.: filtros da página Webmails) — vale tanto para
+   <button> quanto para <div role="button"> (caso do card de período) */
+.stat-filtro {
   text-align: left;
   cursor: pointer;
   font: inherit;
@@ -448,13 +449,114 @@ button.stat-filtro {
   outline-offset: 3px;
 }
 
-button.stat-filtro:hover {
+.stat-filtro:hover {
   opacity: 0.85;
 }
 
-button.stat-filtro.active {
+.stat-filtro.active {
   opacity: 1;
   box-shadow: var(--shadow-lg), 0 0 0 3px color-mix(in srgb, #fff 55%, transparent);
+}
+
+/* ---------- "+" que revela filtros extras (Sem nome, Nunca acessados) ---------- */
+.stats-toggle {
+  display: flex;
+  justify-content: center;
+  margin: -6px 0 var(--space-4);
+}
+
+.stat-expandir {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.stat-expandir:hover {
+  border-color: var(--primary-300);
+  color: var(--primary-700);
+  background: var(--primary-50);
+}
+
+/* card com o calendário de período (o de "Nunca acessados") */
+.stat-filtro-periodo {
+  position: relative;
+}
+
+.stat-filtro-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-cal {
+  border: none;
+  background: color-mix(in srgb, #fff 18%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.btn-cal:hover {
+  background: color-mix(in srgb, #fff 30%, transparent);
+}
+
+.periodo-picker {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+  z-index: 10;
+  cursor: default;
+}
+
+.periodo-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-2);
+}
+
+.periodo-linha input[type="date"] {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+}
+
+.periodo-linha input[type="date"]:focus-visible {
+  border-color: var(--primary);
+}
+
+.periodo-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.periodo-acoes .btn-primary {
+  flex: 1;
 }
 
 .stats-grid .card .muted {
