@@ -135,8 +135,9 @@ const DATA_VALIDA = /^\d{4}-\d{2}-\d{2}$/;
 // semNome / nuncaAcessado: filtros extras (cards do "+").
 // acessoInicio / acessoFim: quando as duas vêm preenchidas, filtram por
 // período de último acesso em vez de "nunca acessado".
-// inativoDias: faixa rápida de inatividade (30/60/90/180) — inclui quem
-// nunca acessou, já que isso também é "inativo há N dias" ou mais.
+// ultimosDias: faixa rápida (30/60/90/180) — mostra quem ACESSOU nos
+// últimos N dias (de hoje até N dias atrás). Quem nunca acessou fica de
+// fora, já que não há acesso nenhum para cair nesse período.
 async function listarContas({
   q = '',
   page = 1,
@@ -145,7 +146,7 @@ async function listarContas({
   nuncaAcessado = false,
   acessoInicio = '',
   acessoFim = '',
-  inativoDias = 0,
+  ultimosDias = 0,
 } = {}) {
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
@@ -165,15 +166,17 @@ async function listarContas({
   if (semNome) {
     condicoes.push("(m.name IS NULL OR m.name = '')");
   }
-  const dias = Number(inativoDias);
+  const dias = Number(ultimosDias);
   if (DATA_VALIDA.test(acessoInicio) && DATA_VALIDA.test(acessoFim)) {
     condicoes.push('m.last_login_date BETWEEN ? AND ?');
     params.push(`${acessoInicio} 00:00:00`, `${acessoFim} 23:59:59`);
   } else if (dias > 0) {
+    // "acessados nos últimos N dias": de (hoje - N dias) até agora.
+    // Quem nunca acessou (last_login_date NULL) não entra aqui.
     const corte = new Date();
     corte.setUTCDate(corte.getUTCDate() - dias);
-    condicoes.push('(m.last_login_date IS NULL OR m.last_login_date <= ?)');
-    params.push(`${corte.toISOString().slice(0, 10)} 23:59:59`);
+    condicoes.push('m.last_login_date BETWEEN ? AND NOW()');
+    params.push(`${corte.toISOString().slice(0, 10)} 00:00:00`);
   } else if (nuncaAcessado) {
     condicoes.push('m.last_login_date IS NULL');
   }
