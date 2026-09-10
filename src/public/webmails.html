@@ -44,9 +44,10 @@
         </div>
 
         <div class="stats-grid" id="wm-extra-grid">
-          <button type="button" class="card stat-filtro" data-extra="semNome">
-            <p class="muted">Sem nome</p>
-            <div class="stat-value" id="wm-sem-nome">—</div>
+          <button type="button" class="card stat-filtro" data-extra="setoriais"
+            title="E-mails de setor/departamento, não de uma pessoa (ex.: gelic.obras, agetrat.alvara)">
+            <p class="muted">Setoriais</p>
+            <div class="stat-value" id="wm-setoriais">—</div>
           </button>
 
           <div class="card stat-filtro stat-filtro-periodo active" id="wm-card-nunca-acessado"
@@ -151,7 +152,7 @@
       document.getElementById('wm-total').textContent = dados.total.toLocaleString('pt-BR');
       document.getElementById('wm-ativos').textContent = dados.ativos.toLocaleString('pt-BR');
       document.getElementById('wm-inativos').textContent = dados.inativos.toLocaleString('pt-BR');
-      document.getElementById('wm-sem-nome').textContent = dados.semNome.toLocaleString('pt-BR');
+      document.getElementById('wm-setoriais').textContent = dados.setoriais.toLocaleString('pt-BR');
       // "nunca acessados" só usa o valor fixo enquanto nenhum filtro de
       // período estiver ativo; depois disso, carregar() atualiza esse
       // número com o total real do período escolhido
@@ -166,7 +167,7 @@
     let totalPaginas = 1;
     let filtroStatus = '';
     // "Nunca Acessados" é o padrão sempre que a página carrega
-    let filtroExtra = 'nuncaAcessado'; // '' | 'semNome' | 'nuncaAcessado'
+    let filtroExtra = 'nuncaAcessado'; // '' | 'setoriais' | 'nuncaAcessado'
     let periodoAtivo = false;
     let periodoInicio = '';
     let periodoFim = '';
@@ -202,7 +203,7 @@
       let rotuloFiltro = '';
       if (filtroStatus === 'ativo') rotuloFiltro = ' (ativados)';
       else if (filtroStatus === 'inativo') rotuloFiltro = ' (desativados)';
-      else if (filtroExtra === 'semNome') rotuloFiltro = ' (sem nome)';
+      else if (filtroExtra === 'setoriais') rotuloFiltro = ' (setoriais)';
       else if (filtroExtra === 'nuncaAcessado') {
         if (periodoAtivo) rotuloFiltro = ' (acesso no período)';
         else if (maisDeDias) rotuloFiltro = ` (sem acesso há ${maisDeDias}+ dias)`;
@@ -231,8 +232,8 @@
       const params = new URLSearchParams({ page: paginaAtual });
       if (termoBusca) params.set('q', termoBusca);
       if (filtroStatus) params.set('status', filtroStatus);
-      if (filtroExtra === 'semNome') {
-        params.set('semNome', '1');
+      if (filtroExtra === 'setoriais') {
+        params.set('setoriais', '1');
       } else if (filtroExtra === 'nuncaAcessado') {
         if (periodoAtivo && periodoInicio && periodoFim) {
           params.set('acessoInicio', periodoInicio);
@@ -302,12 +303,12 @@
       });
     });
 
-    // "Sem nome"
-    document.getElementById('wm-extra-grid').querySelector('[data-extra="semNome"]')
+    // "Setoriais" (e-mails de setor/departamento, não de uma pessoa)
+    document.getElementById('wm-extra-grid').querySelector('[data-extra="setoriais"]')
       .addEventListener('click', (event) => {
         marcarCardAtivo(event.currentTarget);
         filtroStatus = '';
-        filtroExtra = 'semNome';
+        filtroExtra = 'setoriais';
         paginaAtual = 1;
         carregar();
       });
