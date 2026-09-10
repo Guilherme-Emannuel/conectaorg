@@ -60,11 +60,13 @@
             <div class="periodo-picker" id="wm-periodo-picker" style="display:none">
               <p class="muted periodo-secao-titulo">Acessados nos últimos...</p>
               <div class="periodo-presets" id="wm-preset-lista">
-                <button type="button" class="btn-preset active" data-dias="0">Nunca Acessados</button>
-                <button type="button" class="btn-preset" data-dias="30">30 dias</button>
-                <button type="button" class="btn-preset" data-dias="60">60 dias</button>
-                <button type="button" class="btn-preset" data-dias="90">90 dias</button>
-                <button type="button" class="btn-preset" data-dias="180">180 dias</button>
+                <button type="button" class="btn-preset active" data-tipo="nunca" data-dias="0">Nunca Acessados</button>
+                <button type="button" class="btn-preset" data-tipo="ultimos" data-dias="30">30 dias</button>
+                <button type="button" class="btn-preset" data-tipo="ultimos" data-dias="60">60 dias</button>
+                <button type="button" class="btn-preset" data-tipo="ultimos" data-dias="90">90 dias</button>
+                <button type="button" class="btn-preset" data-tipo="ultimos" data-dias="180">180 dias</button>
+                <button type="button" class="btn-preset" data-tipo="maisde" data-dias="180"
+                  title="Já acessou alguma vez, mas não nos últimos 180 dias">180+ dias</button>
               </div>
 
               <p class="muted periodo-secao-titulo">Ou um período específico</p>
@@ -168,7 +170,8 @@
     let periodoAtivo = false;
     let periodoInicio = '';
     let periodoFim = '';
-    let ultimosDias = 0; // 0 = nenhuma faixa rápida selecionada
+    let ultimosDias = 0; // 0 = nenhuma faixa "acessou nos últimos N dias" selecionada
+    let maisDeDias = 0; // 0 = nenhuma faixa "sem acesso há N+ dias" selecionada
     let presetAtivo = true; // "Nunca Acessados" já começa selecionado (ultimosDias = 0)
 
     function linhaHtml(conta) {
@@ -202,6 +205,7 @@
       else if (filtroExtra === 'semNome') rotuloFiltro = ' (sem nome)';
       else if (filtroExtra === 'nuncaAcessado') {
         if (periodoAtivo) rotuloFiltro = ' (acesso no período)';
+        else if (maisDeDias) rotuloFiltro = ` (sem acesso há ${maisDeDias}+ dias)`;
         else if (ultimosDias) rotuloFiltro = ` (acessados nos últimos ${ultimosDias} dias)`;
         else rotuloFiltro = ' (nunca acessados)';
       }
@@ -233,6 +237,8 @@
         if (periodoAtivo && periodoInicio && periodoFim) {
           params.set('acessoInicio', periodoInicio);
           params.set('acessoFim', periodoFim);
+        } else if (maisDeDias) {
+          params.set('maisDeDias', String(maisDeDias));
         } else if (ultimosDias) {
           params.set('ultimosDias', String(ultimosDias));
         } else {
@@ -338,6 +344,7 @@
 
     function limparPresetAtivo() {
       ultimosDias = 0;
+      maisDeDias = 0;
       presetAtivo = false;
       document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
     }
@@ -370,7 +377,8 @@
       carregar();
     });
 
-    // faixas rápidas: quem acessou nos últimos 30/60/90/180 dias
+    // faixas rápidas: "nunca" / "acessou nos últimos N dias" / "sem
+    // acesso há N+ dias" (data-tipo distingue as duas últimas)
     document.querySelectorAll('.btn-preset').forEach((botao) => {
       botao.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -383,11 +391,20 @@
 
         document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
         botao.classList.add('active');
-        ultimosDias = Number(botao.dataset.dias);
+
+        const valor = Number(botao.dataset.dias);
+        if (botao.dataset.tipo === 'maisde') {
+          ultimosDias = 0;
+          maisDeDias = valor;
+          document.getElementById('wm-nunca-label').textContent = `Sem acesso há ${valor}+ dias`;
+        } else {
+          maisDeDias = 0;
+          ultimosDias = valor;
+          document.getElementById('wm-nunca-label').textContent = valor
+            ? `Acessados nos últimos ${valor} dias`
+            : 'Nunca acessados';
+        }
         presetAtivo = true;
-        document.getElementById('wm-nunca-label').textContent = ultimosDias
-          ? `Acessados nos últimos ${ultimosDias} dias`
-          : 'Nunca acessados';
 
         marcarCardAtivo(cardNuncaAcessado);
         filtroStatus = '';
