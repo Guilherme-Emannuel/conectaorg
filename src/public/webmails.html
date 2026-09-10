@@ -58,6 +58,15 @@
             <div class="stat-value" id="wm-nunca-acessado">—</div>
 
             <div class="periodo-picker" id="wm-periodo-picker" style="display:none">
+              <p class="muted periodo-secao-titulo">Faixas de inatividade</p>
+              <div class="periodo-presets" id="wm-preset-lista">
+                <button type="button" class="btn-preset" data-dias="30">30 dias</button>
+                <button type="button" class="btn-preset" data-dias="60">60 dias</button>
+                <button type="button" class="btn-preset" data-dias="90">90 dias</button>
+                <button type="button" class="btn-preset" data-dias="180">180 dias</button>
+              </div>
+
+              <p class="muted periodo-secao-titulo">Ou um período específico</p>
               <div class="periodo-linha">
                 <input type="date" id="wm-periodo-inicio">
                 <span class="muted">até</span>
@@ -157,6 +166,7 @@
     let periodoAtivo = false;
     let periodoInicio = '';
     let periodoFim = '';
+    let inativoDias = 0; // 0 = nenhuma faixa rápida selecionada
 
     function linhaHtml(conta) {
       const ativo = Number(conta.active) === 1;
@@ -188,7 +198,9 @@
       else if (filtroStatus === 'inativo') rotuloFiltro = ' (desativados)';
       else if (filtroExtra === 'semNome') rotuloFiltro = ' (sem nome)';
       else if (filtroExtra === 'nuncaAcessado') {
-        rotuloFiltro = periodoAtivo ? ' (acesso no período)' : ' (nunca acessados)';
+        if (periodoAtivo) rotuloFiltro = ' (acesso no período)';
+        else if (inativoDias) rotuloFiltro = ` (inativo há ${inativoDias}+ dias)`;
+        else rotuloFiltro = ' (nunca acessados)';
       }
       document.getElementById('contagem').textContent =
         `${dados.total.toLocaleString('pt-BR')} registro(s)${rotuloFiltro}` +
@@ -218,6 +230,8 @@
         if (periodoAtivo && periodoInicio && periodoFim) {
           params.set('acessoInicio', periodoInicio);
           params.set('acessoFim', periodoFim);
+        } else if (inativoDias) {
+          params.set('inativoDias', String(inativoDias));
         } else {
           params.set('nuncaAcessado', '1');
         }
@@ -319,6 +333,11 @@
       periodoPicker.style.display = periodoPicker.style.display === 'none' ? 'block' : 'none';
     });
 
+    function limparPresetAtivo() {
+      inativoDias = 0;
+      document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
+    }
+
     document.getElementById('wm-periodo-aplicar').addEventListener('click', (event) => {
       event.stopPropagation();
       const inicio = document.getElementById('wm-periodo-inicio').value;
@@ -327,6 +346,7 @@
         alert('Escolha as duas datas do período.');
         return;
       }
+      limparPresetAtivo(); // período manual e faixa rápida não combinam
       periodoInicio = inicio;
       periodoFim = fim;
       periodoAtivo = true;
@@ -340,6 +360,30 @@
       carregar();
     });
 
+    // faixas rápidas de inatividade (30/60/90/180 dias)
+    document.querySelectorAll('.btn-preset').forEach((botao) => {
+      botao.addEventListener('click', (event) => {
+        event.stopPropagation();
+
+        periodoInicio = '';
+        periodoFim = '';
+        periodoAtivo = false;
+        document.getElementById('wm-periodo-inicio').value = '';
+        document.getElementById('wm-periodo-fim').value = '';
+
+        document.querySelectorAll('.btn-preset').forEach((b) => b.classList.remove('active'));
+        botao.classList.add('active');
+        inativoDias = Number(botao.dataset.dias);
+        document.getElementById('wm-nunca-label').textContent = `Inativo há ${inativoDias}+ dias`;
+
+        marcarCardAtivo(cardNuncaAcessado);
+        filtroStatus = '';
+        filtroExtra = 'nuncaAcessado';
+        paginaAtual = 1;
+        carregar();
+      });
+    });
+
     document.getElementById('wm-periodo-limpar').addEventListener('click', (event) => {
       event.stopPropagation();
       periodoInicio = '';
@@ -347,6 +391,7 @@
       periodoAtivo = false;
       document.getElementById('wm-periodo-inicio').value = '';
       document.getElementById('wm-periodo-fim').value = '';
+      limparPresetAtivo();
       document.getElementById('wm-nunca-label').textContent = 'Nunca acessados';
 
       if (filtroExtra === 'nuncaAcessado') {
