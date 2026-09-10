@@ -465,6 +465,7 @@ function abrirConfirmacaoTrocaGestor(id, node, gestorAntigo, gestorNovo, payload
         <label for="troca-doc-tipo">Documentação da alteração</label>
         <select id="troca-doc-tipo">
           <option value="CI">C.I</option>
+          <option value="DIARIO_OFICIAL">Diário Oficial</option>
           <option value="OFICIO">Ofício</option>
           <option value="OUTROS">Outros</option>
         </select>
@@ -478,6 +479,13 @@ function abrirConfirmacaoTrocaGestor(id, node, gestorAntigo, gestorNovo, payload
         <div class="field">
           <label for="troca-doc-url">URL do documento</label>
           <input id="troca-doc-url" placeholder="https://...">
+        </div>
+      </div>
+
+      <div id="troca-doc-diario" style="display:none">
+        <div class="field">
+          <label for="troca-doc-url-diario">URL da página do Diário Oficial</label>
+          <input id="troca-doc-url-diario" placeholder="https://...">
         </div>
       </div>
 
@@ -498,12 +506,13 @@ function abrirConfirmacaoTrocaGestor(id, node, gestorAntigo, gestorNovo, payload
 
   const selectTipo = document.getElementById('troca-doc-tipo');
   const blocoPadrao = document.getElementById('troca-doc-padrao');
+  const blocoDiario = document.getElementById('troca-doc-diario');
   const blocoOutros = document.getElementById('troca-doc-outros');
 
   selectTipo.addEventListener('change', () => {
-    const outros = selectTipo.value === 'OUTROS';
-    blocoPadrao.style.display = outros ? 'none' : 'block';
-    blocoOutros.style.display = outros ? 'block' : 'none';
+    blocoPadrao.style.display = selectTipo.value === 'CI' || selectTipo.value === 'OFICIO' ? 'block' : 'none';
+    blocoDiario.style.display = selectTipo.value === 'DIARIO_OFICIAL' ? 'block' : 'none';
+    blocoOutros.style.display = selectTipo.value === 'OUTROS' ? 'block' : 'none';
   });
 
   document.getElementById('troca-cancelar').onclick = fecharModal;
@@ -519,6 +528,14 @@ function abrirConfirmacaoTrocaGestor(id, node, gestorAntigo, gestorNovo, payload
         return;
       }
       payload.docDescricao = descricao;
+    } else if (tipo === 'DIARIO_OFICIAL') {
+      let url = document.getElementById('troca-doc-url-diario').value.trim();
+      if (!url) {
+        alert('Informe a URL da página do Diário Oficial.');
+        return;
+      }
+      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      payload.docUrl = url;
     } else {
       const numero = document.getElementById('troca-doc-numero').value.trim();
       let url = document.getElementById('troca-doc-url').value.trim();
@@ -576,7 +593,15 @@ async function abrirModalHistorico(id) {
   const { unidade, gestores } = await res.json();
 
   const rotuloTipo = (tipo) =>
-    tipo === 'CI' ? 'C.I' : tipo === 'OFICIO' ? 'Ofício' : tipo === 'OUTROS' ? 'Outros' : '';
+    tipo === 'CI'
+      ? 'C.I'
+      : tipo === 'DIARIO_OFICIAL'
+        ? 'Diário Oficial'
+        : tipo === 'OFICIO'
+          ? 'Ofício'
+          : tipo === 'OUTROS'
+            ? 'Outros'
+            : '';
 
   const docLabel = (g) =>
     g.docTipo
@@ -608,11 +633,12 @@ async function abrirModalHistorico(id) {
           <select id="doc-tipo-${g.id}">
             <option value="" ${!g.docTipo ? 'selected' : ''}>Sem tipo</option>
             <option value="CI" ${g.docTipo === 'CI' ? 'selected' : ''}>C.I</option>
+            <option value="DIARIO_OFICIAL" ${g.docTipo === 'DIARIO_OFICIAL' ? 'selected' : ''}>Diário Oficial</option>
             <option value="OFICIO" ${g.docTipo === 'OFICIO' ? 'selected' : ''}>Ofício</option>
             <option value="OUTROS" ${g.docTipo === 'OUTROS' ? 'selected' : ''}>Outros</option>
           </select>
         </div>
-        <div id="hist-doc-padrao-${g.id}" style="${g.docTipo === 'OUTROS' ? 'display:none' : ''}">
+        <div id="hist-doc-padrao-${g.id}" style="${g.docTipo === 'CI' || g.docTipo === 'OFICIO' || !g.docTipo ? '' : 'display:none'}">
           <div class="field">
             <label>Número</label>
             <input id="doc-num-${g.id}" value="${esc(g.docNumero || '')}" placeholder="Número (ex.: 123/2026)">
@@ -620,6 +646,12 @@ async function abrirModalHistorico(id) {
           <div class="field">
             <label>URL do documento</label>
             <input id="doc-url-${g.id}" value="${esc(g.docUrl || '')}" placeholder="https://...">
+          </div>
+        </div>
+        <div id="hist-doc-diario-${g.id}" style="${g.docTipo === 'DIARIO_OFICIAL' ? '' : 'display:none'}">
+          <div class="field">
+            <label>URL da página do Diário Oficial</label>
+            <input id="doc-url-diario-${g.id}" value="${esc(g.docTipo === 'DIARIO_OFICIAL' ? g.docUrl || '' : '')}" placeholder="https://...">
           </div>
         </div>
         <div id="hist-doc-outros-${g.id}" style="${g.docTipo === 'OUTROS' ? '' : 'display:none'}">
@@ -656,13 +688,17 @@ async function abrirModalHistorico(id) {
     };
   });
 
-  // alterna entre os campos padrão (número/URL) e o texto livre de "Outros"
+  // alterna entre os campos padrão (número/URL), Diário Oficial (só URL)
+  // e o texto livre de "Outros"
   overlay.querySelectorAll('[id^="doc-tipo-"]').forEach((sel) => {
     sel.addEventListener('change', () => {
       const gid = sel.id.replace('doc-tipo-', '');
-      const outros = sel.value === 'OUTROS';
-      document.getElementById(`hist-doc-padrao-${gid}`).style.display = outros ? 'none' : 'block';
-      document.getElementById(`hist-doc-outros-${gid}`).style.display = outros ? 'block' : 'none';
+      document.getElementById(`hist-doc-padrao-${gid}`).style.display =
+        sel.value === 'CI' || sel.value === 'OFICIO' || !sel.value ? 'block' : 'none';
+      document.getElementById(`hist-doc-diario-${gid}`).style.display =
+        sel.value === 'DIARIO_OFICIAL' ? 'block' : 'none';
+      document.getElementById(`hist-doc-outros-${gid}`).style.display =
+        sel.value === 'OUTROS' ? 'block' : 'none';
     });
   });
 
@@ -674,6 +710,10 @@ async function abrirModalHistorico(id) {
 
       if (tipo === 'OUTROS') {
         payload.docDescricao = document.getElementById(`doc-desc-${gid}`).value;
+      } else if (tipo === 'DIARIO_OFICIAL') {
+        let url = document.getElementById(`doc-url-diario-${gid}`).value.trim();
+        if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+        payload.docUrl = url;
       } else {
         let url = document.getElementById(`doc-url-${gid}`).value.trim();
         if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
