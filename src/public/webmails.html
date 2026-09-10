@@ -39,6 +39,38 @@
           </button>
         </div>
 
+        <div class="stats-toggle">
+          <button type="button" class="stat-expandir" id="wm-expandir-btn" title="Mais filtros">+</button>
+        </div>
+
+        <div class="stats-grid" id="wm-extra-grid" style="display:none">
+          <button type="button" class="card stat-filtro" data-extra="semNome">
+            <p class="muted">Sem nome</p>
+            <div class="stat-value" id="wm-sem-nome">—</div>
+          </button>
+
+          <div class="card stat-filtro stat-filtro-periodo" id="wm-card-nunca-acessado"
+               data-extra="nuncaAcessado" tabindex="0" role="button">
+            <div class="stat-filtro-topo">
+              <p class="muted" id="wm-nunca-label">Nunca acessados</p>
+              <button type="button" class="btn-cal" id="wm-cal-btn" title="Filtrar por período">📅</button>
+            </div>
+            <div class="stat-value" id="wm-nunca-acessado">—</div>
+
+            <div class="periodo-picker" id="wm-periodo-picker" style="display:none">
+              <div class="periodo-linha">
+                <input type="date" id="wm-periodo-inicio">
+                <span class="muted">até</span>
+                <input type="date" id="wm-periodo-fim">
+              </div>
+              <div class="periodo-acoes">
+                <button type="button" class="btn-sm" id="wm-periodo-limpar">Limpar</button>
+                <button type="button" class="btn-primary" id="wm-periodo-aplicar">Aplicar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" id="dados-card" style="display:none">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
             <input type="search" id="filtro" class="search-input"
@@ -107,12 +139,24 @@
       document.getElementById('wm-total').textContent = dados.total.toLocaleString('pt-BR');
       document.getElementById('wm-ativos').textContent = dados.ativos.toLocaleString('pt-BR');
       document.getElementById('wm-inativos').textContent = dados.inativos.toLocaleString('pt-BR');
+      document.getElementById('wm-sem-nome').textContent = dados.semNome.toLocaleString('pt-BR');
+      // "nunca acessados" só usa o valor fixo enquanto nenhum filtro de
+      // período estiver ativo; depois disso, carregar() atualiza esse
+      // número com o total real do período escolhido
+      if (!periodoAtivo) {
+        document.getElementById('wm-nunca-acessado').textContent =
+          dados.nuncaAcessado.toLocaleString('pt-BR');
+      }
     }
 
     let paginaAtual = 1;
     let termoBusca = '';
     let totalPaginas = 1;
     let filtroStatus = '';
+    let filtroExtra = ''; // '' | 'semNome' | 'nuncaAcessado'
+    let periodoAtivo = false;
+    let periodoInicio = '';
+    let periodoFim = '';
 
     function linhaHtml(conta) {
       const ativo = Number(conta.active) === 1;
@@ -139,11 +183,23 @@
         dados.rows.map(linhaHtml).join('') ||
         '<tr><td colspan="7" class="muted">Nenhum resultado.</td></tr>';
 
-      const rotuloFiltro =
-        filtroStatus === 'ativo' ? ' (ativados)' : filtroStatus === 'inativo' ? ' (desativados)' : '';
+      let rotuloFiltro = '';
+      if (filtroStatus === 'ativo') rotuloFiltro = ' (ativados)';
+      else if (filtroStatus === 'inativo') rotuloFiltro = ' (desativados)';
+      else if (filtroExtra === 'semNome') rotuloFiltro = ' (sem nome)';
+      else if (filtroExtra === 'nuncaAcessado') {
+        rotuloFiltro = periodoAtivo ? ' (acesso no período)' : ' (nunca acessados)';
+      }
       document.getElementById('contagem').textContent =
         `${dados.total.toLocaleString('pt-BR')} registro(s)${rotuloFiltro}` +
         (termoBusca ? ` para "${termoBusca}"` : '');
+
+      // o card "Nunca acessados" reflete o total ATUAL exibido (com ou
+      // sem período aplicado) enquanto ele é o filtro ativo
+      if (filtroExtra === 'nuncaAcessado') {
+        document.getElementById('wm-nunca-acessado').textContent =
+          dados.total.toLocaleString('pt-BR');
+      }
 
       totalPaginas = dados.totalPages;
       document.getElementById('pag-info').textContent =
@@ -156,6 +212,16 @@
       const params = new URLSearchParams({ page: paginaAtual });
       if (termoBusca) params.set('q', termoBusca);
       if (filtroStatus) params.set('status', filtroStatus);
+      if (filtroExtra === 'semNome') {
+        params.set('semNome', '1');
+      } else if (filtroExtra === 'nuncaAcessado') {
+        if (periodoAtivo && periodoInicio && periodoFim) {
+          params.set('acessoInicio', periodoInicio);
+          params.set('acessoFim', periodoFim);
+        } else {
+          params.set('nuncaAcessado', '1');
+        }
+      }
 
       const res = await apiFetch(`/api/webmail/accounts?${params}`);
       if (!res) return;
@@ -196,16 +262,111 @@
       }
     });
 
-    // clicar num card filtra a tabela por status; "cadastrados" mostra todos
-    document.querySelectorAll('.stat-filtro').forEach((botao) => {
-      botao.addEventListener('click', () => {
-        document.querySelectorAll('.stat-filtro').forEach((b) => b.classList.remove('active'));
-        botao.classList.add('active');
+    // só um card fica ativo por vez, seja dos 3 de cima ou dos 2 do "+"
+    function marcarCardAtivo(elemento) {
+      document.querySelectorAll('.stat-filtro').forEach((b) => b.classList.remove('active'));
+      elemento.classList.add('active');
+    }
 
+    // cards de status (Cadastrados / Ativados / Desativados)
+    document.querySelectorAll('.stat-filtro[data-status]').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        marcarCardAtivo(botao);
         filtroStatus = botao.dataset.status;
+        filtroExtra = '';
         paginaAtual = 1;
         carregar();
       });
+    });
+
+    // "Sem nome"
+    document.getElementById('wm-extra-grid').querySelector('[data-extra="semNome"]')
+      .addEventListener('click', (event) => {
+        marcarCardAtivo(event.currentTarget);
+        filtroStatus = '';
+        filtroExtra = 'semNome';
+        paginaAtual = 1;
+        carregar();
+      });
+
+    // "Nunca acessados" — clicar no corpo do card ativa o filtro; o clique
+    // dentro do seletor de período (calendário/inputs/botões) não deve
+    // reativar o filtro do zero, só usar os controles internos
+    const cardNuncaAcessado = document.getElementById('wm-card-nunca-acessado');
+    const periodoPicker = document.getElementById('wm-periodo-picker');
+
+    function ativarNuncaAcessado() {
+      marcarCardAtivo(cardNuncaAcessado);
+      filtroStatus = '';
+      filtroExtra = 'nuncaAcessado';
+      paginaAtual = 1;
+      carregar();
+    }
+
+    cardNuncaAcessado.addEventListener('click', (event) => {
+      if (event.target.closest('.periodo-picker') || event.target.closest('.btn-cal')) return;
+      ativarNuncaAcessado();
+    });
+    cardNuncaAcessado.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        ativarNuncaAcessado();
+      }
+    });
+
+    document.getElementById('wm-cal-btn').addEventListener('click', (event) => {
+      event.stopPropagation();
+      periodoPicker.style.display = periodoPicker.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('wm-periodo-aplicar').addEventListener('click', (event) => {
+      event.stopPropagation();
+      const inicio = document.getElementById('wm-periodo-inicio').value;
+      const fim = document.getElementById('wm-periodo-fim').value;
+      if (!inicio || !fim) {
+        alert('Escolha as duas datas do período.');
+        return;
+      }
+      periodoInicio = inicio;
+      periodoFim = fim;
+      periodoAtivo = true;
+      document.getElementById('wm-nunca-label').textContent =
+        `${inicio.split('-').reverse().join('/')} a ${fim.split('-').reverse().join('/')}`;
+
+      marcarCardAtivo(cardNuncaAcessado);
+      filtroStatus = '';
+      filtroExtra = 'nuncaAcessado';
+      paginaAtual = 1;
+      carregar();
+    });
+
+    document.getElementById('wm-periodo-limpar').addEventListener('click', (event) => {
+      event.stopPropagation();
+      periodoInicio = '';
+      periodoFim = '';
+      periodoAtivo = false;
+      document.getElementById('wm-periodo-inicio').value = '';
+      document.getElementById('wm-periodo-fim').value = '';
+      document.getElementById('wm-nunca-label').textContent = 'Nunca acessados';
+
+      if (filtroExtra === 'nuncaAcessado') {
+        paginaAtual = 1;
+        carregar();
+      }
+      carregarStats(); // repõe o número fixo de "nunca acessados"
+    });
+
+    // "+" revela os filtros extras e já ativa "Nunca acessados" por padrão
+    let extrasAbertos = false;
+    document.getElementById('wm-expandir-btn').addEventListener('click', (event) => {
+      extrasAbertos = !extrasAbertos;
+      const grid = document.getElementById('wm-extra-grid');
+      grid.style.display = extrasAbertos ? 'grid' : 'none';
+      event.currentTarget.textContent = extrasAbertos ? '−' : '+';
+
+      if (extrasAbertos) {
+        ativarNuncaAcessado();
+      }
     });
 
     carregarStats();
