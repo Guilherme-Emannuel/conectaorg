@@ -160,6 +160,26 @@
       return { columns: novasColunas, labels: novosRotulos };
     }
 
+    // ---- coluna Ações: telefone de contato mantido SOMENTE no banco ----
+    // local do ConectaOrg (nunca escreve no banco de RH, que é somente
+    // leitura). Só aparece se existir uma coluna de matrícula na tabela,
+    // usada como chave para ligar o telefone à pessoa certa.
+    const COLUNA_ACOES = '__acoes';
+
+    function colunaMatricula(columns) {
+      return columns.find((c) => c.toLowerCase().includes('matricula'));
+    }
+
+    function comColunaAcoes(columns, labels) {
+      if (columns.includes(COLUNA_ACOES) || !colunaMatricula(columns)) {
+        return { columns, labels };
+      }
+      return {
+        columns: [...columns, COLUNA_ACOES],
+        labels: [...labels, 'AÇÕES'],
+      };
+    }
+
     // busca e paginação acontecem no SERVIDOR — aqui só exibimos
     let paginaAtual = 1;
     let termoBusca = '';
@@ -167,20 +187,29 @@
 
     function renderizar(dados) {
       // cabeçalhos usam os rótulos configurados; os dados seguem pelas colunas
-      const { columns, labels } = comColunaWebmail(
-        dados.columns,
-        dados.labels || dados.columns
-      );
+      const comWebmail = comColunaWebmail(dados.columns, dados.labels || dados.columns);
+      const { columns, labels } = comColunaAcoes(comWebmail.columns, comWebmail.labels);
+
+      const colMatricula = colunaMatricula(dados.columns);
+      const colCelular = dados.columns.find((c) => ehColunaTelefone(c));
 
       document.getElementById('cabecalho').innerHTML =
         `<tr>${labels.map((r) => `<th>${esc(r)}</th>`).join('')}</tr>`;
 
       const celula = (coluna, linha) => {
-        if (coluna !== COLUNA_WEBMAIL) return celulaHtml(coluna, linha[coluna]);
-        const email = linha[COLUNA_WEBMAIL];
-        return email
-          ? esc(email)
-          : '<span class="muted" title="Nenhum e-mail encontrado com esse nome">—</span>';
+        if (coluna === COLUNA_WEBMAIL) {
+          const email = linha[COLUNA_WEBMAIL];
+          return email
+            ? esc(email)
+            : '<span class="muted" title="Nenhum e-mail encontrado com esse nome">—</span>';
+        }
+        if (coluna === COLUNA_ACOES) {
+          const matricula = linha[colMatricula];
+          const temCelular = Boolean(colCelular && linha[colCelular]);
+          const rotulo = temCelular ? '✎ Editar telefone' : '➕ Adicionar telefone';
+          return `<button class="btn-sm" data-acao-telefone="${esc(matricula)}">${rotulo}</button>`;
+        }
+        return celulaHtml(coluna, linha[coluna]);
       };
 
       document.getElementById('linhas').innerHTML =
@@ -274,9 +303,84 @@
       overlay.classList.add('open');
     }
 
+    // ---- telefone de contato: SOMENTE no banco local do ConectaOrg. ----
+    // Nunca altera o banco de RH (externo, somente leitura) — o número
+    // "oficial" mostrado na coluna Celular continua vindo de lá sem
+    // qualquer modificação. Isto é só um contato complementar nosso.
+    async function abrirTelefoneContato(matricula) {
+      const res = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefones`);
+      if (!res || !res.ok) {
+        alert('Erro ao carregar o histórico de telefones.');
+        return;
+      }
+      const historico = await res.json();
+      const atual = historico.find((t) => t.atual);
+
+      const itemHtml = (t) => `
+        <div class="hist-item${t.atual ? ' atual' : ''}">
+          <div class="hist-head">
+            <strong>${esc(formatarTelefone(t.telefone))}</strong>
+            ${t.atual ? '<span class="badge-atual">Atual</span>' : ''}
+          </div>
+          <div class="hist-data">Salvo em ${new Date(t.criadoEm).toLocaleDateString('pt-BR')}</div>
+        </div>`;
+
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:420px">
+          <h3>Telefone de contato</h3>
+          <p class="muted" style="margin-top:-10px;margin-bottom:14px">
+            Mantido apenas no ConectaOrg — não altera o cadastro de origem.
+          </p>
+
+          <div class="hist-lista" style="max-height:200px">
+            ${historico.map(itemHtml).join('') || '<p class="muted">Nenhum número salvo ainda.</p>'}
+          </div>
+
+          <div class="field">
+            <label for="tel-contato-novo">Número atualizado</label>
+            <input id="tel-contato-novo" value="${esc(atual ? atual.telefone : '')}" placeholder="(67) 99999-0000">
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="tel-contato-cancelar">Cancelar</button>
+            <button type="button" class="btn-primary" id="tel-contato-salvar">Salvar</button>
+          </div>
+        </div>`;
+
+      document.getElementById('tel-contato-cancelar').onclick = fecharModal;
+
+      document.getElementById('tel-contato-salvar').onclick = async () => {
+        const numero = document.getElementById('tel-contato-novo').value.trim();
+        if (!numero) {
+          alert('Informe o número de telefone.');
+          return;
+        }
+
+        const resp = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefone`, {
+          method: 'PUT',
+          body: JSON.stringify({ telefone: numero }),
+        });
+
+        if (!resp || !resp.ok) {
+          alert(resp ? (await resp.json()).error : 'Erro ao salvar.');
+          return;
+        }
+
+        fecharModal();
+        mostrarToast('Telefone de contato foi atualizado com sucesso');
+      };
+
+      overlay.classList.add('open');
+    }
+
     document.getElementById('linhas').addEventListener('click', (event) => {
       const tel = event.target.closest('[data-tel]');
-      if (tel) abrirWhatsapp(tel.dataset.tel);
+      if (tel) {
+        abrirWhatsapp(tel.dataset.tel);
+        return;
+      }
+      const acaoTel = event.target.closest('[data-acao-telefone]');
+      if (acaoTel) abrirTelefoneContato(acaoTel.dataset.acaoTelefone);
     });
 
     document.getElementById('pag-anterior').addEventListener('click', () => {
