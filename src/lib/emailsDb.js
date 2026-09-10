@@ -138,6 +138,9 @@ const DATA_VALIDA = /^\d{4}-\d{2}-\d{2}$/;
 // ultimosDias: faixa rápida (30/60/90/180) — mostra quem ACESSOU nos
 // últimos N dias (de hoje até N dias atrás). Quem nunca acessou fica de
 // fora, já que não há acesso nenhum para cair nesse período.
+// maisDeDias: o complemento — quem JÁ acessou alguma vez, mas não nos
+// últimos N dias (último acesso foi há N dias ou mais). Fecha a conta com
+// nuncaAcessado + ultimosDias: juntos cobrem 100% das contas, sem sobrepor.
 async function listarContas({
   q = '',
   page = 1,
@@ -147,6 +150,7 @@ async function listarContas({
   acessoInicio = '',
   acessoFim = '',
   ultimosDias = 0,
+  maisDeDias = 0,
 } = {}) {
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
@@ -176,6 +180,12 @@ async function listarContas({
     const corte = new Date();
     corte.setUTCDate(corte.getUTCDate() - dias);
     condicoes.push('m.last_login_date BETWEEN ? AND NOW()');
+    params.push(`${corte.toISOString().slice(0, 10)} 00:00:00`);
+  } else if (Number(maisDeDias) > 0) {
+    // complemento de "ultimosDias": já acessou, mas não nos últimos N dias
+    const corte = new Date();
+    corte.setUTCDate(corte.getUTCDate() - Number(maisDeDias));
+    condicoes.push('m.last_login_date IS NOT NULL AND m.last_login_date < ?');
     params.push(`${corte.toISOString().slice(0, 10)} 00:00:00`);
   } else if (nuncaAcessado) {
     condicoes.push('m.last_login_date IS NULL');
