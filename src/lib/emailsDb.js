@@ -49,13 +49,24 @@ async function estatisticas() {
   const agora = Date.now();
   if (cacheStats && agora - cacheStatsEm < CACHE_MS) return cacheStats;
 
-  const [[{ total, ativos }]] = await getPool().query(
-    'SELECT COUNT(*) AS total, SUM(active = 1) AS ativos FROM mailbox'
-  );
+  const [[{ total, ativos, semNome, nuncaAcessado }]] = await getPool().query(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(active = 1) AS ativos,
+      SUM(name IS NULL OR name = '') AS semNome,
+      SUM(last_login_date IS NULL) AS nuncaAcessado
+    FROM mailbox
+  `);
   const totalNum = Number(total);
   const ativosNum = Number(ativos) || 0;
 
-  cacheStats = { total: totalNum, ativos: ativosNum, inativos: totalNum - ativosNum };
+  cacheStats = {
+    total: totalNum,
+    ativos: ativosNum,
+    inativos: totalNum - ativosNum,
+    semNome: Number(semNome) || 0,
+    nuncaAcessado: Number(nuncaAcessado) || 0,
+  };
   cacheStatsEm = agora;
   return cacheStats;
 }
@@ -115,10 +126,24 @@ async function buscarPorNome(nome) {
 
 const PAGE_SIZE = 50;
 
+// AAAA-MM-DD, exatamente — evita passar algo malformado pra query
+const DATA_VALIDA = /^\d{4}-\d{2}-\d{2}$/;
+
 // Lista paginada das contas de e-mail (aba Webmails). Só as colunas
 // necessárias para exibição — NUNCA seleciona password/token/totp_secret.
 // status: 'ativo' | 'inativo' | '' (todos) — filtro dos cards clicáveis.
-async function listarContas({ q = '', page = 1, status = '' } = {}) {
+// semNome / nuncaAcessado: filtros extras (cards do "+").
+// acessoInicio / acessoFim: quando as duas vêm preenchidas, filtram por
+// período de último acesso em vez de "nunca acessado".
+async function listarContas({
+  q = '',
+  page = 1,
+  status = '',
+  semNome = false,
+  nuncaAcessado = false,
+  acessoInicio = '',
+  acessoFim = '',
+} = {}) {
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
   const offset = (paginaAtual - 1) * PAGE_SIZE;
@@ -133,6 +158,15 @@ async function listarContas({ q = '', page = 1, status = '' } = {}) {
     condicoes.push('m.active = 1');
   } else if (status === 'inativo') {
     condicoes.push('m.active = 0');
+  }
+  if (semNome) {
+    condicoes.push("(m.name IS NULL OR m.name = '')");
+  }
+  if (DATA_VALIDA.test(acessoInicio) && DATA_VALIDA.test(acessoFim)) {
+    condicoes.push('m.last_login_date BETWEEN ? AND ?');
+    params.push(`${acessoInicio} 00:00:00`, `${acessoFim} 23:59:59`);
+  } else if (nuncaAcessado) {
+    condicoes.push('m.last_login_date IS NULL');
   }
   const where = condicoes.length ? ` WHERE ${condicoes.join(' AND ')}` : '';
 
