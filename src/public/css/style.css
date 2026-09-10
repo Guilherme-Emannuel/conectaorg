@@ -534,10 +534,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .periodo-presets {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: var(--space-3);
+}
+
+.periodo-presets .btn-preset {
+  flex: 1 1 68px;
 }
 
 .btn-preset {
