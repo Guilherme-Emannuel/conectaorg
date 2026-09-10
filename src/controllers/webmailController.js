@@ -32,7 +32,7 @@ async function accounts(req, res) {
       q: req.query.q || '',
       page: req.query.page || 1,
       status: req.query.status || '',
-      semNome: req.query.semNome === '1',
+      setoriais: req.query.setoriais === '1',
       nuncaAcessado: req.query.nuncaAcessado === '1',
       acessoInicio: req.query.acessoInicio || '',
       acessoFim: req.query.acessoFim || '',
