@@ -61,3 +61,18 @@ model GestorHistory {
 
   @@map("gestor_history")
 }
+
+// Telefone de contato mantido SOMENTE no ConectaOrg, complementando o
+// cadastro de RH (externo, somente leitura, nunca escrito por aqui).
+// "matricula" liga esse registro à pessoa na tabela externa (matricula_contrato).
+// Cada novo número marca o anterior como não-atual, preservando histórico.
+model ContatoTelefone {
+  id        Int      @id @default(autoincrement())
+  matricula String
+  telefone  String
+  atual     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  @@index([matricula])
+  @@map("contato_telefones")
+}
