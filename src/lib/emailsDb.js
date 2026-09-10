@@ -49,7 +49,7 @@ function getPool() {
 //  - sem ponto (um único "bloco"): quase sempre é setorial na prática
 //    (ex.: "almoxarifado", "assessoria", "auditoriafiscal");
 //  - com ponto, quando um dos pedaços é um tema administrativo em vez
-//    de um sobrenome (ex.: "gelic.obras", "agetrat.alvara").
+//    de um sobrenome (ex.: "sigla.tema", como "abc.protocolo").
 // Não é 100% perfeito (é heurística, não uma coluna dedicada) — dá pra
 // ajustar essa lista conforme aparecerem exceções.
 const PALAVRAS_SETORIAL = [
