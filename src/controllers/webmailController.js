@@ -36,7 +36,7 @@ async function accounts(req, res) {
       nuncaAcessado: req.query.nuncaAcessado === '1',
       acessoInicio: req.query.acessoInicio || '',
       acessoFim: req.query.acessoFim || '',
-      inativoDias: req.query.inativoDias || 0,
+      ultimosDias: req.query.ultimosDias || 0,
     });
     res.json(resultado);
   } catch (err) {
