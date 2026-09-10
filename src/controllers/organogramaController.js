@@ -22,7 +22,7 @@ async function tree(req, res) {
   res.json(raiz);
 }
 
-const TIPOS_DOC = ['CI', 'OFICIO', 'OUTROS'];
+const TIPOS_DOC = ['CI', 'DIARIO_OFICIAL', 'OFICIO', 'OUTROS'];
 
 // PUT /api/organograma/:id — edita uma unidade (somente ADMIN)
 async function update(req, res) {
@@ -94,7 +94,7 @@ async function update(req, res) {
   if (precisaDocumentar) {
     if (!TIPOS_DOC.includes(docTipo)) {
       return res.status(400).json({
-        error: 'Para trocar o gestor, informe a documentação (C.I, Ofício ou Outros).',
+        error: 'Para trocar o gestor, informe a documentação (C.I, Diário Oficial, Ofício ou Outros).',
       });
     }
     if (docTipo === 'OUTROS') {
@@ -102,6 +102,12 @@ async function update(req, res) {
         return res
           .status(400)
           .json({ error: 'Explique como a troca de gestor foi solicitada.' });
+      }
+    } else if (docTipo === 'DIARIO_OFICIAL') {
+      if (!docUrl?.trim()) {
+        return res
+          .status(400)
+          .json({ error: 'Informe a URL da página do Diário Oficial.' });
       }
     } else if (!docNumero?.trim() || !docUrl?.trim()) {
       return res
@@ -151,7 +157,8 @@ async function update(req, res) {
           nome: gestorNovo,
           atual: true,
           docTipo,
-          docNumero: docTipo === 'OUTROS' ? null : docNumero.trim(),
+          docNumero:
+            docTipo === 'OUTROS' || docTipo === 'DIARIO_OFICIAL' ? null : docNumero.trim(),
           docUrl: docTipo === 'OUTROS' ? null : docUrl.trim(),
           docDescricao: docTipo === 'OUTROS' ? docDescricao.trim() : null,
         },
@@ -203,14 +210,17 @@ async function updateGestorDoc(req, res) {
   }
 
   if (docTipo && !TIPOS_DOC.includes(docTipo)) {
-    return res.status(400).json({ error: 'Tipo de documento deve ser C.I, Ofício ou Outros.' });
+    return res
+      .status(400)
+      .json({ error: 'Tipo de documento deve ser C.I, Diário Oficial, Ofício ou Outros.' });
   }
 
   const registro = await prisma.gestorHistory.update({
     where: { id: histId },
     data: {
       docTipo: docTipo || null,
-      docNumero: docTipo === 'OUTROS' ? null : docNumero?.trim() || null,
+      docNumero:
+        docTipo === 'OUTROS' || docTipo === 'DIARIO_OFICIAL' ? null : docNumero?.trim() || null,
       docUrl: docTipo === 'OUTROS' ? null : docUrl?.trim() || null,
       docDescricao: docTipo === 'OUTROS' ? docDescricao?.trim() || null : null,
     },
