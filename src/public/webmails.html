@@ -619,7 +619,10 @@
               (p) => `
           <div class="pessoa-item" data-matricula="${esc(p.matricula)}" data-nome="${esc(p.nome)}">
             <strong>${esc(p.nome)}</strong>
-            ${p.cpf ? `<div class="hist-data">CPF: ${esc(formatarCpf(p.cpf))}</div>` : ''}
+            <div class="hist-data">
+              ${p.cpf ? `CPF: ${esc(formatarCpf(p.cpf))}` : ''}
+              ${p.cpf ? ' • ' : ''}${p.telefone ? esc(formatarTelefone(p.telefone)) : 'Sem Telefone Cadastrado'}
+            </div>
             <div class="hist-data">
               ${[p.divisaoNome, p.subdivisaoNome, p.unidadeNome].filter(Boolean).map(esc).join(' • ')}
             </div>

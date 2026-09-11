@@ -39,6 +39,7 @@ async function buscarPessoas(req, res) {
       matricula: linha[id.matricula],
       nome: linha[id.nome],
       cpf: id.cpf ? linha[id.cpf] : null,
+      telefone: id.telefone ? linha[id.telefone] : null,
       divisaoNome: id.divisao ? linha[id.divisao] : null,
       subdivisaoNome: id.subdivisao ? linha[id.subdivisao] : null,
       unidadeNome: id.unidade ? linha[id.unidade] : null,

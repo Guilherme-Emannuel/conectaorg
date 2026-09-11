@@ -117,6 +117,9 @@ function identificarColunas(columns) {
     matricula: columns.find((c) => lower(c).includes('matricula')),
     nome: columns.find((c) => lower(c) === 'nome'),
     cpf: columns.find((c) => lower(c).includes('cpf')),
+    telefone: columns.find(
+      (c) => lower(c).includes('celular') || lower(c).includes('telefone') || lower(c).includes('fone')
+    ),
     divisao: columns.find((c) => lower(c).includes('divisao') && !lower(c).includes('subdivisao')),
     subdivisao: columns.find((c) => lower(c).includes('subdivisao')),
     unidade: columns.find((c) => lower(c).includes('unidade')),
