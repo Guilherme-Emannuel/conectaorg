@@ -40,3 +40,5 @@ scripts/
 backup/
 *.sql
 *.sql.gz
+# ...exceto as migrations do Prisma, que fazem parte do código
+!prisma/migrations/**/*.sql
