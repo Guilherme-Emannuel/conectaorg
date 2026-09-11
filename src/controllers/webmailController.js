@@ -1,4 +1,5 @@
 const { configurado, estatisticas, listarContas } = require('../lib/emailsDb');
+const prisma = require('../lib/prisma');
 
 // GET /api/webmail/stats — total, ativados e desativados (somente ADMIN)
 async function stats(req, res) {
@@ -39,6 +40,21 @@ async function accounts(req, res) {
       ultimosDias: req.query.ultimosDias || 0,
       maisDeDias: req.query.maisDeDias || 0,
     });
+
+    // cruza com o responsável atual (banco local, somente aqui) pelo
+    // username — nada é lido/alterado no banco de e-mails além do já feito
+    const usernames = resultado.rows.map((r) => r.username);
+    const responsaveis = usernames.length
+      ? await prisma.webmailResponsavel.findMany({
+          where: { username: { in: usernames }, atual: true },
+        })
+      : [];
+    const porUsername = new Map(responsaveis.map((r) => [r.username, r]));
+    resultado.rows.forEach((r) => {
+      const resp = porUsername.get(r.username);
+      r.responsavel = resp ? { nome: resp.nome, matricula: resp.matricula } : null;
+    });
+
     res.json(resultado);
   } catch (err) {
     console.error('Erro ao listar contas de webmail:', err.message);

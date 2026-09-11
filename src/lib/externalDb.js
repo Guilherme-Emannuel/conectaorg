@@ -108,4 +108,46 @@ async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
   };
 }
 
-module.exports = { configurado, consultarUsuariosExternos, mapaRotulos };
+// Identifica, entre as colunas configuradas no .env (nomes variam de
+// instalação pra instalação), quais representam matrícula/nome/cpf/divisão/
+// subdivisão/unidade — por substring, já que não há nomes fixos garantidos.
+function identificarColunas(columns) {
+  const lower = (c) => c.toLowerCase();
+  return {
+    matricula: columns.find((c) => lower(c).includes('matricula')),
+    nome: columns.find((c) => lower(c) === 'nome'),
+    cpf: columns.find((c) => lower(c).includes('cpf')),
+    divisao: columns.find((c) => lower(c).includes('divisao') && !lower(c).includes('subdivisao')),
+    subdivisao: columns.find((c) => lower(c).includes('subdivisao')),
+    unidade: columns.find((c) => lower(c).includes('unidade')),
+  };
+}
+
+// Busca uma única pessoa pela matrícula (todas as colunas configuradas).
+// Somente leitura — mesma tabela/conexão de consultarUsuariosExternos.
+async function buscarPessoaPorMatricula(matricula) {
+  const tabela = process.env.EXT_DB_TABLE;
+  const colunas = colunasConfiguradas();
+  if (!colunas.length) return null;
+
+  const { matricula: colMatricula } = identificarColunas(colunas);
+  if (!colMatricula) return null;
+
+  const sql = mysql.format('SELECT ?? FROM ?? WHERE ?? = ? LIMIT 1', [
+    colunas,
+    tabela,
+    colMatricula,
+    matricula,
+  ]);
+  const [rows] = await getPool().query(sql);
+  return rows[0] || null;
+}
+
+module.exports = {
+  configurado,
+  consultarUsuariosExternos,
+  mapaRotulos,
+  colunasConfiguradas,
+  identificarColunas,
+  buscarPessoaPorMatricula,
+};

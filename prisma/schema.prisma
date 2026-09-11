@@ -76,3 +76,25 @@ model ContatoTelefone {
   @@index([matricula])
   @@map("contato_telefones")
 }
+
+// Responsável (pessoa) vinculado a uma conta de webmail setorial — mantido
+// SOMENTE no ConectaOrg. "username" liga à conta no banco de e-mails
+// (externo, somente leitura); "matricula" liga à pessoa no banco de RH
+// (externo, somente leitura). Os demais campos são um retrato da pessoa
+// no momento do vínculo, preservado mesmo que o cadastro de origem mude
+// depois — o histórico continua fazendo sentido.
+model WebmailResponsavel {
+  id             Int      @id @default(autoincrement())
+  username       String
+  matricula      String
+  nome           String
+  cpf            String?
+  divisaoNome    String?
+  subdivisaoNome String?
+  unidadeNome    String?
+  atual          Boolean  @default(true)
+  vinculadoEm    DateTime @default(now())
+
+  @@index([username])
+  @@map("webmail_responsaveis")
+}
