@@ -96,6 +96,7 @@
                 <tr>
                   <th>Webmail</th>
                   <th>Nome</th>
+                  <th>Responsável</th>
                   <th>Status</th>
                   <th>Último acesso</th>
                   <th>Armazenamento</th>
@@ -115,6 +116,8 @@
       </main>
     </div>
   </div>
+
+  <div class="modal-overlay" id="modal-overlay"></div>
 
   <script src="/js/auth.js"></script>
   <script src="/js/layout.js"></script>
@@ -189,10 +192,14 @@
       const armazenamento = `${formatarBytes(conta.quota_usado)} de ${
         conta.quota_limite ? formatarBytes(conta.quota_limite) : 'sem limite'
       }`;
+      const responsavelHtml = conta.responsavel
+        ? `<button class="tel-link" data-ver-responsavel="${esc(conta.username)}">${esc(conta.responsavel.nome)}</button>`
+        : `<button class="btn-sm" data-vincular-responsavel="${esc(conta.username)}">➕ Vincular</button>`;
 
       return `<tr>
         <td class="nowrap">${esc(conta.username)}</td>
         <td>${esc(conta.name)}</td>
+        <td>${responsavelHtml}</td>
         <td>${badge}</td>
         <td class="nowrap">${formatarData(conta.last_login_date)}</td>
         <td class="nowrap">${esc(armazenamento)}</td>
@@ -204,7 +211,7 @@
     function renderizar(dados) {
       document.getElementById('linhas').innerHTML =
         dados.rows.map(linhaHtml).join('') ||
-        '<tr><td colspan="7" class="muted">Nenhum resultado.</td></tr>';
+        '<tr><td colspan="8" class="muted">Nenhum resultado.</td></tr>';
 
       // junta o rótulo de cada grupo ativo — os 3 combinam livremente
       const partes = [];
@@ -292,6 +299,356 @@
         paginaAtual++;
         carregar();
       }
+    });
+
+    // ---- Responsável do webmail setorial: vínculo mantido SOMENTE no ----
+    // ConectaOrg. Nunca lê, escreve ou altera nada nos bancos externos
+    // (RH, e-mail) além das consultas de leitura já existentes.
+    const overlay = document.getElementById('modal-overlay');
+
+    function fecharModal() {
+      overlay.classList.remove('open');
+      overlay.innerHTML = '';
+    }
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) fecharModal();
+    });
+
+    // todo modal criado por aqui usa esse X no canto + fecha clicando fora
+    function botaoFecharHtml() {
+      return '<button type="button" class="modal-close" data-fechar-modal title="Fechar">✕</button>';
+    }
+
+    function ligarFechar() {
+      const btn = overlay.querySelector('[data-fechar-modal]');
+      if (btn) btn.onclick = fecharModal;
+    }
+
+    // ---- formatação (mesmas regras da tela Usuários, só pra exibição) ----
+    function somenteDigitos(valor) {
+      return String(valor ?? '').replace(/\D/g, '');
+    }
+
+    function formatarCpf(valor) {
+      const d = somenteDigitos(valor);
+      if (d.length !== 11) return valor;
+      return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
+    function formatarTelefone(valor) {
+      let d = somenteDigitos(valor).replace(/^0+/, '');
+      if (d.length === 9 || d.length === 8) d = '67' + d;
+      if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+      if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+      return valor;
+    }
+
+    function telefoneDigitos(valor) {
+      let d = somenteDigitos(valor).replace(/^0+/, '');
+      if (d.length === 9 || d.length === 8) d = '67' + d;
+      return d.length === 10 || d.length === 11 ? d : null;
+    }
+
+    function ehColunaTelefone(coluna) {
+      const c = coluna.toLowerCase();
+      return c.includes('celular') || c.includes('telefone') || c.includes('fone');
+    }
+
+    function ehColunaData(coluna) {
+      const c = coluna.toLowerCase();
+      return c.startsWith('data') || c.includes('_data') || c.includes('date');
+    }
+
+    function formatarValorCampo(coluna, valor) {
+      if (valor === null || valor === undefined || valor === '') return '—';
+      const c = coluna.toLowerCase();
+      if (c.includes('cpf')) return formatarCpf(valor);
+      if (ehColunaTelefone(c)) return formatarTelefone(valor);
+      if (ehColunaData(c)) return formatarData(valor);
+      return valor;
+    }
+
+    function abrirWhatsapp(digitos) {
+      const numeroFormatado = formatarTelefone(digitos);
+      const internacional = `55${digitos}`;
+
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:360px">
+          ${botaoFecharHtml()}
+          <h3>Abrir no WhatsApp</h3>
+          <p class="muted" style="margin-bottom:15px">Conversar com <strong>${esc(numeroFormatado)}</strong></p>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button type="button" class="btn-primary" id="wa-web">🌐 WhatsApp Web (navegador)</button>
+            <button type="button" class="btn-primary" id="wa-app">💻 Aplicativo instalado no PC</button>
+            <button type="button" class="btn-secondary" id="wa-cancelar">Cancelar</button>
+          </div>
+        </div>`;
+
+      document.getElementById('wa-web').onclick = () => {
+        window.open(`https://web.whatsapp.com/send?phone=${internacional}`, '_blank', 'noopener');
+        fecharModal();
+      };
+      document.getElementById('wa-app').onclick = () => {
+        window.location.href = `whatsapp://send?phone=${internacional}`;
+        fecharModal();
+      };
+      document.getElementById('wa-cancelar').onclick = fecharModal;
+      ligarFechar();
+      overlay.classList.add('open');
+    }
+
+    // telefone de contato mantido SOMENTE no ConectaOrg (nunca altera o RH)
+    async function abrirTelefoneContato(matricula, aoSalvar) {
+      const res = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefones`);
+      if (!res || !res.ok) {
+        alert('Erro ao carregar o histórico de telefones.');
+        return;
+      }
+      const historico = await res.json();
+      const atual = historico.find((t) => t.atual);
+
+      const itemHtml = (t) => `
+        <div class="hist-item${t.atual ? ' atual' : ''}">
+          <div class="hist-head">
+            <strong>${esc(formatarTelefone(t.telefone))}</strong>
+            ${t.atual ? '<span class="badge-atual">Atual</span>' : ''}
+          </div>
+          <div class="hist-data">Salvo em ${new Date(t.criadoEm).toLocaleDateString('pt-BR')}</div>
+        </div>`;
+
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:420px">
+          ${botaoFecharHtml()}
+          <h3>Telefone de contato</h3>
+          <p class="muted" style="margin-top:-10px;margin-bottom:14px">
+            Mantido apenas no ConectaOrg — não altera o cadastro de origem.
+          </p>
+          <div class="hist-lista" style="max-height:200px">
+            ${historico.map(itemHtml).join('') || '<p class="muted">Nenhum número salvo ainda.</p>'}
+          </div>
+          <div class="field">
+            <label for="tel-contato-novo">Número atualizado</label>
+            <input id="tel-contato-novo" value="${esc(atual ? atual.telefone : '')}" placeholder="(67) 99999-0000">
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="tel-contato-cancelar">Cancelar</button>
+            <button type="button" class="btn-primary" id="tel-contato-salvar">Salvar</button>
+          </div>
+        </div>`;
+
+      document.getElementById('tel-contato-cancelar').onclick = fecharModal;
+      document.getElementById('tel-contato-salvar').onclick = async () => {
+        const numero = document.getElementById('tel-contato-novo').value.trim();
+        if (!numero) {
+          alert('Informe o número de telefone.');
+          return;
+        }
+        const resp = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefone`, {
+          method: 'PUT',
+          body: JSON.stringify({ telefone: numero }),
+        });
+        if (!resp || !resp.ok) {
+          alert(resp ? (await resp.json()).error : 'Erro ao salvar.');
+          return;
+        }
+        mostrarToast('Telefone de contato foi atualizado com sucesso');
+        if (aoSalvar) aoSalvar();
+        else fecharModal();
+      };
+      ligarFechar();
+      overlay.classList.add('open');
+    }
+
+    // "mais informações": todos os dados da pessoa (Usuários Dados Completos)
+    async function abrirMaisInformacoes(matricula) {
+      const res = await apiFetch(`/api/external-users/${encodeURIComponent(matricula)}`);
+      if (!res || !res.ok) {
+        alert('Erro ao carregar os dados da pessoa.');
+        return;
+      }
+      const { columns, labels, linha } = await res.json();
+      const colCelular = columns.find((c) => ehColunaTelefone(c));
+
+      const linhaCampo = (coluna, rotulo) => {
+        const valor = linha[coluna];
+        let conteudo = esc(formatarValorCampo(coluna, valor));
+        if (ehColunaTelefone(coluna)) {
+          const d = telefoneDigitos(valor);
+          if (d) conteudo = `<button class="tel-link" data-tel="${d}">${conteudo}</button>`;
+        }
+        return `<tr><td class="muted">${esc(rotulo)}</td><td>${conteudo}</td></tr>`;
+      };
+
+      const temCelular = Boolean(colCelular && linha[colCelular]);
+      const acoesHtml = `<tr><td class="muted">AÇÕES</td><td>
+        <button class="btn-sm" id="mi-editar-telefone">${temCelular ? '✎ Editar telefone de contato' : '➕ Adicionar telefone de contato'}</button>
+      </td></tr>`;
+
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:480px">
+          ${botaoFecharHtml()}
+          <h3>${esc(linha[columns.find((c) => c.toLowerCase() === 'nome')] || 'Dados da pessoa')}</h3>
+          <div class="table-wrap">
+            <table class="data-table">
+              <tbody>
+                ${columns.map((c, i) => linhaCampo(c, labels[i])).join('')}
+                ${acoesHtml}
+              </tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="mi-fechar">Fechar</button>
+          </div>
+        </div>`;
+
+      overlay.querySelectorAll('[data-tel]').forEach((btn) => {
+        btn.onclick = () => abrirWhatsapp(btn.dataset.tel);
+      });
+      document.getElementById('mi-editar-telefone').onclick = () =>
+        abrirTelefoneContato(matricula, () => abrirMaisInformacoes(matricula));
+      document.getElementById('mi-fechar').onclick = fecharModal;
+      ligarFechar();
+      overlay.classList.add('open');
+    }
+
+    // histórico do responsável: quem é o atual + quem já foi, com datas
+    async function abrirHistoricoResponsavel(username) {
+      const res = await apiFetch(`/api/webmail/responsavel/${encodeURIComponent(username)}`);
+      if (!res || !res.ok) {
+        alert('Erro ao carregar o histórico do responsável.');
+        return;
+      }
+      const historico = await res.json();
+
+      const itemHtml = (r) => `
+        <div class="hist-item${r.atual ? ' atual' : ''}">
+          <div class="hist-head">
+            <strong>${esc(r.nome)}</strong>
+            ${r.atual ? '<span class="badge-atual">Atual</span>' : ''}
+          </div>
+          <div class="hist-data">Vinculado em ${new Date(r.vinculadoEm).toLocaleDateString('pt-BR')}</div>
+          <div class="actions" style="margin-top:8px">
+            <button type="button" class="btn-sm" data-mais-info="${esc(r.matricula)}">Mais informações</button>
+          </div>
+        </div>`;
+
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:440px">
+          ${botaoFecharHtml()}
+          <h3>Responsável pelo webmail</h3>
+          <p class="muted" style="margin-top:-10px;margin-bottom:14px">${esc(username)}</p>
+          <div class="hist-lista">
+            ${historico.map(itemHtml).join('') || '<p class="muted">Nenhum responsável vinculado ainda.</p>'}
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="hist-fechar">Fechar</button>
+            <button type="button" class="btn-primary" id="hist-trocar">Trocar responsável</button>
+          </div>
+        </div>`;
+
+      overlay.querySelectorAll('[data-mais-info]').forEach((btn) => {
+        btn.onclick = () => abrirMaisInformacoes(btn.dataset.maisInfo);
+      });
+      document.getElementById('hist-fechar').onclick = fecharModal;
+      document.getElementById('hist-trocar').onclick = () => abrirBuscarResponsavel(username);
+      ligarFechar();
+      overlay.classList.add('open');
+    }
+
+    // confirmação antes de gravar o vínculo
+    function confirmarVinculo(username, matricula, nome) {
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:380px">
+          ${botaoFecharHtml()}
+          <h3>Confirmar vínculo</h3>
+          <p class="muted">Tem certeza que deseja vincular <strong>${esc(nome)}</strong> como responsável por <strong>${esc(username)}</strong>?</p>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="conf-nao">Cancelar</button>
+            <button type="button" class="btn-primary" id="conf-sim">Sim, vincular</button>
+          </div>
+        </div>`;
+
+      document.getElementById('conf-nao').onclick = () => abrirBuscarResponsavel(username);
+      document.getElementById('conf-sim').onclick = async () => {
+        const resp = await apiFetch(`/api/webmail/responsavel/${encodeURIComponent(username)}`, {
+          method: 'POST',
+          body: JSON.stringify({ matricula }),
+        });
+        if (!resp || !resp.ok) {
+          alert(resp ? (await resp.json()).error : 'Erro ao vincular responsável.');
+          return;
+        }
+        fecharModal();
+        mostrarToast('Responsável vinculado com sucesso');
+        carregar();
+      };
+      ligarFechar();
+      overlay.classList.add('open');
+    }
+
+    // busca de pessoas (banco de RH, somente leitura) pra escolher quem vincular
+    let buscaPessoaTimer = null;
+    async function abrirBuscarResponsavel(username) {
+      overlay.innerHTML = `
+        <div class="modal" style="max-width:520px">
+          ${botaoFecharHtml()}
+          <h3>Vincular responsável</h3>
+          <p class="muted" style="margin-top:-10px;margin-bottom:14px">${esc(username)}</p>
+          <input type="search" id="rp-filtro" class="search-input" placeholder="Buscar por nome ou CPF..." style="width:100%;margin-bottom:12px">
+          <div class="hist-lista" id="rp-lista" style="max-height:320px"></div>
+        </div>`;
+      ligarFechar();
+      overlay.classList.add('open');
+
+      const listaEl = document.getElementById('rp-lista');
+
+      async function buscar(q) {
+        listaEl.innerHTML = '<p class="muted">Buscando...</p>';
+        const params = new URLSearchParams({ page: 1 });
+        if (q) params.set('q', q);
+        const res = await apiFetch(`/api/webmail/responsavel/buscar-pessoas?${params}`);
+        if (!res || !res.ok) {
+          listaEl.innerHTML = '<p class="muted">Erro ao buscar pessoas.</p>';
+          return;
+        }
+        const dados = await res.json();
+        listaEl.innerHTML =
+          dados.rows
+            .map(
+              (p) => `
+          <div class="pessoa-item" data-matricula="${esc(p.matricula)}" data-nome="${esc(p.nome)}">
+            <strong>${esc(p.nome)}</strong>
+            ${p.cpf ? `<div class="hist-data">CPF: ${esc(formatarCpf(p.cpf))}</div>` : ''}
+            <div class="hist-data">
+              ${[p.divisaoNome, p.subdivisaoNome, p.unidadeNome].filter(Boolean).map(esc).join(' • ')}
+            </div>
+          </div>`
+            )
+            .join('') || '<p class="muted">Nenhuma pessoa encontrada.</p>';
+
+        listaEl.querySelectorAll('[data-matricula]').forEach((item) => {
+          item.onclick = () =>
+            confirmarVinculo(username, item.dataset.matricula, item.dataset.nome);
+        });
+      }
+
+      document.getElementById('rp-filtro').addEventListener('input', (e) => {
+        clearTimeout(buscaPessoaTimer);
+        buscaPessoaTimer = setTimeout(() => buscar(e.target.value.trim()), 350);
+      });
+
+      buscar('');
+    }
+
+    document.getElementById('linhas').addEventListener('click', (event) => {
+      const vincular = event.target.closest('[data-vincular-responsavel]');
+      if (vincular) {
+        abrirBuscarResponsavel(vincular.dataset.vincularResponsavel);
+        return;
+      }
+      const ver = event.target.closest('[data-ver-responsavel]');
+      if (ver) abrirHistoricoResponsavel(ver.dataset.verResponsavel);
     });
 
     // cards de status (Cadastrados / Ativados / Desativados) — só um
