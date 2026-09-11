@@ -229,6 +229,10 @@ async function listarContas({
   acessoFim = '',
   ultimosDias = 0,
   maisDeDias = 0,
+  // usernames cujo RESPONSÁVEL (banco local, não este) bate com o termo
+  // buscado — o nome do responsável não existe aqui, então quem chama
+  // (webmailController) já resolveu essa parte antes de nos passar
+  usernamesResponsavel = [],
 } = {}) {
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
@@ -237,8 +241,13 @@ async function listarContas({
   const condicoes = [];
   const params = [];
   if (termo) {
-    condicoes.push('(m.username LIKE ? OR m.name LIKE ?)');
+    const partes = ['m.username LIKE ?', 'm.name LIKE ?'];
     params.push(`%${termo}%`, `%${termo}%`);
+    if (usernamesResponsavel.length) {
+      partes.push(`m.username IN (${usernamesResponsavel.map(() => '?').join(',')})`);
+      params.push(...usernamesResponsavel);
+    }
+    condicoes.push(`(${partes.join(' OR ')})`);
   }
   if (status === 'ativo') {
     condicoes.push('m.active = 1');

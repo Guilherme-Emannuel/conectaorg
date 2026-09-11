@@ -29,8 +29,21 @@ async function accounts(req, res) {
   }
 
   try {
+    const termo = String(req.query.q || '').trim();
+
+    // o nome do responsável só existe no banco local — resolve aqui quais
+    // contas batem por ele antes de pedir a lista (que é do banco externo)
+    const usernamesResponsavel = termo
+      ? (
+          await prisma.webmailResponsavel.findMany({
+            where: { atual: true, nome: { contains: termo } },
+            select: { username: true },
+          })
+        ).map((r) => r.username)
+      : [];
+
     const resultado = await listarContas({
-      q: req.query.q || '',
+      q: termo,
       page: req.query.page || 1,
       status: req.query.status || '',
       setoriais: req.query.setoriais === '1',
@@ -39,6 +52,7 @@ async function accounts(req, res) {
       acessoFim: req.query.acessoFim || '',
       ultimosDias: req.query.ultimosDias || 0,
       maisDeDias: req.query.maisDeDias || 0,
+      usernamesResponsavel,
     });
 
     // cruza com o responsável atual (banco local, somente aqui) pelo
