@@ -7,6 +7,7 @@
 //  - somente SELECT/COUNT — nenhum INSERT/UPDATE/DELETE existe aqui;
 //  - recomenda-se um usuário de banco com privilégio apenas de SELECT.
 const mysql = require('mysql2/promise');
+const prisma = require('./prisma');
 
 let pool = null;
 
@@ -67,8 +68,28 @@ const PALAVRAS_SETORIAL = [
   'corregedoria', 'agencia', 'fundacao', 'departamento', 'politicas', 'viabilidade',
 ];
 
+// Siglas reais dos setores (do próprio organograma): quando o primeiro
+// pedaço do endereço é uma sigla de setor, é setorial — sigla nunca é
+// primeiro nome de pessoa, então não corre o risco de pegar "nome.sobrenome"
+// por engano. Complementa a lista de palavras-chave, que sozinha não cobre
+// tudo (ex.: siglas menos óbvias que não têm um tema "óbvio" no endereço).
+let cacheSiglas = null;
+let cacheSiglasEm = 0;
+
+async function siglasDoOrganograma() {
+  const agora = Date.now();
+  if (cacheSiglas && agora - cacheSiglasEm < CACHE_MS) return cacheSiglas;
+  const unidades = await prisma.orgUnit.findMany({
+    where: { sigla: { not: null } },
+    select: { sigla: true },
+  });
+  cacheSiglas = [...new Set(unidades.map((u) => u.sigla.trim().toLowerCase()).filter(Boolean))];
+  cacheSiglasEm = agora;
+  return cacheSiglas;
+}
+
 // monta a condição SQL + parâmetros pra "é uma conta setorial"
-function condicaoSetorial() {
+async function condicaoSetorial() {
   const condicoes = ["m.local_part NOT LIKE '%.%'"];
   const params = [];
   PALAVRAS_SETORIAL.forEach((palavra) => {
@@ -83,6 +104,15 @@ function condicaoSetorial() {
     "m.local_part LIKE '%.rh'",
     "m.local_part LIKE '%.rh.%'"
   );
+
+  const siglas = await siglasDoOrganograma();
+  if (siglas.length) {
+    condicoes.push(
+      `LOWER(SUBSTRING_INDEX(m.local_part, '.', 1)) IN (${siglas.map(() => '?').join(',')})`
+    );
+    params.push(...siglas);
+  }
+
   return { sql: `(${condicoes.join(' OR ')})`, params };
 }
 
@@ -95,7 +125,7 @@ async function estatisticas() {
   const agora = Date.now();
   if (cacheStats && agora - cacheStatsEm < CACHE_MS) return cacheStats;
 
-  const { sql: condSetorial, params: paramsSetorial } = condicaoSetorial();
+  const { sql: condSetorial, params: paramsSetorial } = await condicaoSetorial();
   const [[{ total, ativos, setoriais, nuncaAcessado }]] = await getPool().query(
     `SELECT
       COUNT(*) AS total,
@@ -216,7 +246,7 @@ async function listarContas({
     condicoes.push('m.active = 0');
   }
   if (setoriais) {
-    const { sql, params: paramsSetorial } = condicaoSetorial();
+    const { sql, params: paramsSetorial } = await condicaoSetorial();
     condicoes.push(sql);
     params.push(...paramsSetorial);
   }
