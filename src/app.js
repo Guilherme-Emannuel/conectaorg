@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const helmet = require('helmet');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -9,6 +10,11 @@ const webmailRoutes = require('./routes/webmailRoutes');
 const contatoRoutes = require('./routes/contatoRoutes');
 
 const app = express();
+
+// Cabeçalhos de segurança HTTP. CSP padrão fica desligada porque as
+// páginas usam <script> inline (não são arquivos externos) — com o CSP
+// padrão do helmet, o navegador bloquearia esses scripts e o front pararia.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // Middlewares globais (limite maior por causa das fotos do organograma)
 app.use(express.json({ limit: '5mb' }));
