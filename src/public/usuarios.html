@@ -141,12 +141,18 @@
       };
     }
 
-    function chipHtml(rotulo, valorHtml, extraClasse) {
-      return `<span class="pessoa-detalhe${extraClasse ? ' ' + extraClasse : ''}">${rotulo ? `${esc(rotulo)} ` : ''}${valorHtml}</span>`;
+    // bloco pequeno "rótulo em cima, valor embaixo" — reaproveitado no
+    // resumo de cargo/setor, nos detalhes do cartão e no histórico
+    function tileHtml(rotulo, valorHtml, extraClasse) {
+      return `<div class="tile${extraClasse ? ' ' + extraClasse : ''}"><span class="tile-rotulo">${esc(rotulo)}</span><span class="tile-valor">${valorHtml}</span></div>`;
     }
 
-    function subtituloDaPessoa(linha, cat) {
+    function resumoDaPessoa(linha, cat) {
+      const tiles = [];
+
       const cargoTxt = cat.cargos.map((c) => linha[c]).filter(Boolean).join(' · ');
+      if (cargoTxt) tiles.push(tileHtml('Cargo', esc(cargoTxt)));
+
       const setorPartes = [cat.divisao, cat.subdivisao]
         .filter((c) => c && linha[c])
         .map((c) => linha[c]);
@@ -154,14 +160,16 @@
         setorPartes.push(linha[cat.unidade]);
       }
       const setorTxt = setorPartes.join(' › ');
-      return [cargoTxt, setorTxt].filter(Boolean).join(' — ') || '<span class="muted">Sem cargo/setor informado</span>';
+      if (setorTxt) tiles.push(tileHtml('Setor', esc(setorTxt)));
+
+      return tiles.join('') || '<p class="muted" style="margin:4px 0 0">Sem cargo/setor informado.</p>';
     }
 
     function chipsDaPessoa(linha, cat, rotulos) {
       const chips = [];
 
       if (cat.cpf && linha[cat.cpf]) {
-        chips.push(chipHtml('CPF', `<strong>${esc(formatarCpf(linha[cat.cpf]))}</strong>`));
+        chips.push(tileHtml('CPF', `<strong>${esc(formatarCpf(linha[cat.cpf]))}</strong>`));
       }
       if (cat.celular && linha[cat.celular]) {
         const d = telefoneDigitos(linha[cat.celular]);
@@ -169,25 +177,23 @@
         const valor = d
           ? `<button class="tel-link" data-tel="${d}" title="Abrir no WhatsApp"><strong>${valorTxt}</strong></button>`
           : `<strong>${valorTxt}</strong>`;
-        chips.push(chipHtml('📱', valor));
+        chips.push(tileHtml('Celular', valor));
       }
 
       const email = linha.__webmail;
       chips.push(
-        email
-          ? chipHtml('✉️', `<strong>${esc(email)}</strong>`)
-          : chipHtml('✉️', '<span class="muted">sem webmail encontrado</span>')
+        tileHtml('Webmail', email ? `<strong>${esc(email)}</strong>` : '<span class="muted">não encontrado</span>')
       );
 
       if (cat.admissao && linha[cat.admissao]) {
-        chips.push(chipHtml('Admissão', `<strong>${esc(formatarData(linha[cat.admissao]))}</strong>`));
+        chips.push(tileHtml('Admissão', `<strong>${esc(formatarData(linha[cat.admissao]))}</strong>`));
       }
       cat.outrasDatas.forEach((c) => {
-        if (linha[c]) chips.push(chipHtml(rotulos[c] || c, `<strong>${esc(formatarData(linha[c]))}</strong>`));
+        if (linha[c]) chips.push(tileHtml(rotulos[c] || c, `<strong>${esc(formatarData(linha[c]))}</strong>`));
       });
       cat.restantes.forEach((c) => {
         if (linha[c] !== null && linha[c] !== undefined && linha[c] !== '') {
-          chips.push(chipHtml(rotulos[c] || c, `<strong>${esc(linha[c])}</strong>`));
+          chips.push(tileHtml(rotulos[c] || c, `<strong>${esc(linha[c])}</strong>`));
         }
       });
 
@@ -229,10 +235,10 @@
           <div class="pessoa-identidade">
             <div class="pessoa-nome">
               ${esc(nomeTxt)}
-              ${matriculaTxt ? `<span class="pessoa-matricula">#${esc(matriculaTxt)}</span>` : ''}
+              ${matriculaTxt ? `<span class="pessoa-matricula">Matrícula #${esc(matriculaTxt)}</span>` : ''}
               ${statusBadgeHtml(linha, cat)}
             </div>
-            <div class="pessoa-cargo-setor">${subtituloDaPessoa(linha, cat)}</div>
+            <div class="pessoa-resumo">${resumoDaPessoa(linha, cat)}</div>
           </div>
           ${botoesAcaoHtml(linha, cat)}
         </div>
@@ -242,22 +248,30 @@
 
     // versão condensada de uma linha do histórico (um contrato anterior)
     function historicoItemHtml(linha, cat) {
-      const cargoTxt = cat.cargos.map((c) => linha[c]).filter(Boolean).join(' · ');
-      const setorTxt = [cat.divisao, cat.subdivisao]
-        .filter((c) => c && linha[c])
-        .map((c) => linha[c])
-        .join(' › ');
-      const descricao = [cargoTxt, setorTxt].filter(Boolean).join(' — ');
+      const tiles = [];
 
       const inicio = cat.admissao && linha[cat.admissao] ? formatarData(linha[cat.admissao]) : '?';
       const fim = cat.demissao && linha[cat.demissao] ? formatarData(linha[cat.demissao]) : '?';
       const temPeriodo = (cat.admissao && linha[cat.admissao]) || (cat.demissao && linha[cat.demissao]);
+      if (temPeriodo) tiles.push(tileHtml('Período', `${esc(inicio)} – ${esc(fim)}`));
 
-      return `<div class="pessoa-historico-item">
-        ${temPeriodo ? `<span class="pessoa-historico-periodo">${esc(inicio)} – ${esc(fim)}</span>` : ''}
-        <span class="pessoa-historico-cargo">${descricao ? esc(descricao) : '<span class="muted">Sem cargo/setor informado</span>'}</span>
-        ${cat.matricula ? `<span class="pessoa-historico-matricula">#${esc(linha[cat.matricula])}</span>` : ''}
-      </div>`;
+      const cargoTxt = cat.cargos.map((c) => linha[c]).filter(Boolean).join(' · ');
+      if (cargoTxt) tiles.push(tileHtml('Cargo', esc(cargoTxt)));
+
+      const setorTxt = [cat.divisao, cat.subdivisao]
+        .filter((c) => c && linha[c])
+        .map((c) => linha[c])
+        .join(' › ');
+      if (setorTxt) tiles.push(tileHtml('Setor', esc(setorTxt)));
+
+      if (!cargoTxt && !setorTxt) {
+        tiles.push('<p class="muted" style="margin:0">Sem cargo/setor informado.</p>');
+      }
+      if (cat.matricula) {
+        tiles.push(tileHtml('Matrícula', `#${esc(linha[cat.matricula])}`, 'tile-fraca'));
+      }
+
+      return `<div class="pessoa-historico-item">${tiles.join('')}</div>`;
     }
 
     // busca e paginação acontecem no SERVIDOR — aqui só exibimos

@@ -908,12 +908,6 @@ button.nav-item {
   font-weight: 500;
 }
 
-.pessoa-cargo-setor {
-  margin-top: 3px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
 .pessoa-acoes {
   display: flex;
   gap: 6px;
@@ -922,24 +916,57 @@ button.nav-item {
   flex-shrink: 0;
 }
 
+/* ---- "tile": rótulo pequeno em cima, valor embaixo — usado no resumo ---- */
+/* (cargo/setor), nos detalhes do cartão e no histórico, sempre com o
+   mesmo padrão, pra nunca precisar adivinhar o que cada valor significa. */
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tile-rotulo {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.tile-valor {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.tile-valor strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tile.tile-fraca .tile-valor {
+  color: var(--text-faint);
+  font-size: 11.5px;
+}
+
+.pessoa-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px var(--space-4);
+  margin-top: 6px;
+}
+
+.pessoa-resumo .tile-valor {
+  font-size: 13.5px;
+  color: var(--text);
+}
+
 .pessoa-card-detalhes {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 20px;
+  gap: var(--space-2) var(--space-4);
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--border);
-}
-
-.pessoa-detalhe {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.pessoa-detalhe strong {
-  color: var(--text);
-  font-weight: 600;
 }
 
 /* histórico expandido: contratos anteriores, um por linha bem separada */
@@ -962,10 +989,8 @@ button.nav-item {
 .pessoa-historico-item {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px var(--space-3);
-  padding: 7px var(--space-1);
-  font-size: 12.5px;
+  gap: 4px var(--space-4);
+  padding: 8px var(--space-1);
   border-top: 1px solid var(--border);
 }
 
@@ -973,25 +998,8 @@ button.nav-item {
   border-top: none;
 }
 
-.pessoa-historico-periodo {
-  flex-shrink: 0;
-  min-width: 132px;
-  color: var(--text);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.pessoa-historico-cargo {
-  flex: 1;
-  min-width: 160px;
-  color: var(--text-muted);
-}
-
-.pessoa-historico-matricula {
-  flex-shrink: 0;
+.pessoa-historico-item .tile-fraca {
   margin-left: auto;
-  color: var(--text-faint);
-  font-size: 11px;
 }
 
 /* ---------- Lista de histórico (compartilhada: gestores, telefones...) ---------- */
