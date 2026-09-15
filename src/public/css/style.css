@@ -858,10 +858,12 @@ button.nav-item {
   color: #fff;
 }
 
-/* ---------- Cartões de pessoa (tela Usuários Dados Completos) ---------- */
-/* Uma pessoa por cartão em vez de uma linha larga de tabela: nome e
-   situação em destaque, cargo/setor num resumo, o resto em chips —
-   nada de arrastar a tela pros lados pra ver o resto do cadastro. */
+/* ---------- Cartões de registro (Usuários, Webmails) ---------- */
+/* Um registro por cartão em vez de uma linha larga de tabela: nome e
+   situação em destaque, o resto em blocos com rótulo próprio (label
+   em cima, valor embaixo) — nada de arrastar a tela pros lados, nem
+   de adivinhar o que cada valor significa. Reaproveitado nas duas
+   telas, já que o problema (tabela larga e sem rótulo) era o mesmo. */
 .pessoas-lista {
   display: flex;
   flex-direction: column;

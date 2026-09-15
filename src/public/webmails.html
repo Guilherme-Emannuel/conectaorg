@@ -90,23 +90,7 @@
               placeholder="Buscar por nome ou e-mail...">
             <span class="muted" id="contagem" style="font-size:12.5px"></span>
           </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Webmail</th>
-                  <th>Nome</th>
-                  <th>Responsável</th>
-                  <th>Status</th>
-                  <th>Último acesso</th>
-                  <th>Armazenamento</th>
-                  <th>Criado em</th>
-                  <th>Alterado em</th>
-                </tr>
-              </thead>
-              <tbody id="linhas"></tbody>
-            </table>
-          </div>
+          <div class="pessoas-lista" id="linhas"></div>
           <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
             <button class="btn-sm" id="pag-anterior">« Anterior</button>
             <span class="muted" id="pag-info" style="font-size:12.5px"></span>
@@ -184,7 +168,13 @@
     let maisDeDias = 0; // 0 = nenhuma faixa "sem acesso há N+ dias" selecionada
     let presetAtivo = true; // "Nunca Acessados" já começa selecionado (ultimosDias = 0)
 
-    function linhaHtml(conta) {
+    // bloco pequeno "rótulo em cima, valor embaixo" — mesmo padrão usado
+    // na tela Usuários, pra nunca precisar adivinhar o que cada valor é
+    function tileHtml(rotulo, valorHtml, extraClasse) {
+      return `<div class="tile${extraClasse ? ' ' + extraClasse : ''}"><span class="tile-rotulo">${esc(rotulo)}</span><span class="tile-valor">${valorHtml}</span></div>`;
+    }
+
+    function contaCardHtml(conta) {
       const ativo = Number(conta.active) === 1;
       const badge = ativo
         ? '<span class="role-badge ativo">Ativado</span>'
@@ -193,25 +183,35 @@
         conta.quota_limite ? formatarBytes(conta.quota_limite) : 'sem limite'
       }`;
       const responsavelHtml = conta.responsavel
-        ? `<button class="tel-link" data-ver-responsavel="${esc(conta.username)}">${esc(conta.responsavel.nome)}</button>`
+        ? `<button class="tel-link" data-ver-responsavel="${esc(conta.username)}"><strong>${esc(conta.responsavel.nome)}</strong></button>`
         : `<button class="btn-sm" data-vincular-responsavel="${esc(conta.username)}">➕ Vincular</button>`;
 
-      return `<tr>
-        <td class="nowrap">${esc(conta.username)}</td>
-        <td>${esc(conta.name)}</td>
-        <td>${responsavelHtml}</td>
-        <td>${badge}</td>
-        <td class="nowrap">${formatarData(conta.last_login_date)}</td>
-        <td class="nowrap">${esc(armazenamento)}</td>
-        <td class="nowrap">${formatarData(conta.created)}</td>
-        <td class="nowrap">${formatarData(conta.modified)}</td>
-      </tr>`;
+      return `<div class="pessoa-card">
+        <div class="pessoa-card-topo">
+          <div class="pessoa-identidade">
+            <div class="pessoa-nome">
+              ${esc(conta.username)}
+              ${badge}
+            </div>
+            <div class="pessoa-resumo">
+              ${tileHtml('Nome', conta.name ? `<strong>${esc(conta.name)}</strong>` : '<span class="muted">Sem nome cadastrado</span>')}
+            </div>
+          </div>
+          <div class="pessoa-acoes">${tileHtml('Responsável', responsavelHtml)}</div>
+        </div>
+        <div class="pessoa-card-detalhes">
+          ${tileHtml('Último acesso', `<strong>${esc(formatarData(conta.last_login_date))}</strong>`)}
+          ${tileHtml('Armazenamento', `<strong>${esc(armazenamento)}</strong>`)}
+          ${tileHtml('Criado em', esc(formatarData(conta.created)))}
+          ${tileHtml('Alterado em', esc(formatarData(conta.modified)))}
+        </div>
+      </div>`;
     }
 
     function renderizar(dados) {
       document.getElementById('linhas').innerHTML =
-        dados.rows.map(linhaHtml).join('') ||
-        '<tr><td colspan="8" class="muted">Nenhum resultado.</td></tr>';
+        dados.rows.map(contaCardHtml).join('') ||
+        '<p class="muted">Nenhum resultado.</p>';
 
       // junta o rótulo de cada grupo ativo — os 3 combinam livremente
       const partes = [];
