@@ -3,6 +3,7 @@ const {
   consultarUsuariosExternos,
   mapaRotulos,
   buscarPessoaPorMatricula,
+  buscarHistoricoPorCpf,
 } = require('../lib/externalDb');
 const emailsDb = require('../lib/emailsDb');
 
@@ -20,7 +21,11 @@ async function listar(req, res) {
       q: req.query.q || '',
       page: req.query.page || 1,
     });
-    const columns = resultado.rows.length ? Object.keys(resultado.rows[0]) : [];
+    // __totalContratos é metadado interno (decide o botão de histórico no
+    // front), não uma coluna real da tabela — não entra na lista exibida
+    const columns = resultado.rows.length
+      ? Object.keys(resultado.rows[0]).filter((c) => c !== '__totalContratos')
+      : [];
     const rotulos = mapaRotulos();
     const labels = columns.map((c) => rotulos[c] || c);
 
@@ -74,4 +79,28 @@ async function detalhe(req, res) {
   }
 }
 
-module.exports = { listar, detalhe };
+// GET /api/external-users/historico/:cpf — outros contratos da mesma
+// pessoa (mais recente pro mais antigo), pro botão "Histórico" da tabela
+async function historico(req, res) {
+  if (!configurado()) {
+    return res.status(503).json({
+      error:
+        'Conexão externa não configurada. Preencha as variáveis EXT_DB_* no arquivo .env.',
+    });
+  }
+
+  try {
+    const rows = await buscarHistoricoPorCpf(req.params.cpf);
+    const columns = rows.length ? Object.keys(rows[0]) : [];
+    const rotulos = mapaRotulos();
+    const labels = columns.map((c) => rotulos[c] || c);
+    res.json({ columns, labels, rows });
+  } catch (err) {
+    console.error('Erro ao consultar histórico externo:', err.message);
+    res.status(502).json({
+      error: 'Não foi possível consultar o banco externo. Verifique a conexão no .env.',
+    });
+  }
+}
+
+module.exports = { listar, detalhe, historico };

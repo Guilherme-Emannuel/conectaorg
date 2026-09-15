@@ -63,35 +63,117 @@ function mapaRotulos() {
   return mapa;
 }
 
+// Identifica, entre as colunas configuradas no .env (nomes variam de
+// instalação pra instalação), quais representam matrícula/nome/cpf/divisão/
+// subdivisão/unidade — por substring, já que não há nomes fixos garantidos.
+function identificarColunas(columns) {
+  const lower = (c) => c.toLowerCase();
+  return {
+    matricula: columns.find((c) => lower(c).includes('matricula')),
+    nome: columns.find((c) => lower(c) === 'nome'),
+    cpf: columns.find((c) => lower(c).includes('cpf')),
+    telefone: columns.find(
+      (c) => lower(c).includes('celular') || lower(c).includes('telefone') || lower(c).includes('fone')
+    ),
+    divisao: columns.find((c) => lower(c).includes('divisao') && !lower(c).includes('subdivisao')),
+    subdivisao: columns.find((c) => lower(c).includes('subdivisao')),
+    unidade: columns.find((c) => lower(c).includes('unidade')),
+    demissao: columns.find((c) => lower(c).includes('demissao')),
+    admissao: columns.find((c) => lower(c).includes('admissao') && !lower(c).includes('nomeacao')),
+  };
+}
+
+// Ordem que define o "contrato atual" de uma pessoa: sem data de
+// demissão (ainda ativo) vem primeiro; entre os encerrados, o mais
+// recente primeiro. É a MESMA ordem usada tanto pra escolher o registro
+// atual quanto pra listar o histórico do mais novo pro mais antigo.
+function ordenacaoEstadoAtual(id) {
+  const partes = [];
+  if (id.demissao) {
+    partes.push(mysql.format("(?? IS NULL OR ?? = '') DESC", [id.demissao, id.demissao]));
+    partes.push(mysql.format('?? DESC', [id.demissao]));
+  }
+  if (id.admissao) {
+    partes.push(mysql.format('?? DESC', [id.admissao]));
+  }
+  return partes.length ? partes.join(', ') : '1';
+}
+
+// Chave de agrupamento "uma pessoa" — CPF é o vínculo mais confiável
+// entre os vários contratos/matrículas da mesma pessoa. Sem CPF (linha
+// incompleta), cada matrícula vira seu próprio grupo, pra não misturar
+// pessoas diferentes por engano.
+function chaveAgrupamento(id) {
+  return mysql.format("COALESCE(NULLIF(??, ''), CONCAT('sem-cpf-', ??))", [
+    id.cpf,
+    id.matricula || id.cpf,
+  ]);
+}
+
 // Busca paginada: WHERE com LIKE em todas as colunas exibidas (parametrizado)
 // e COUNT(*) com o mesmo filtro para o total real.
+// Quando há coluna de CPF configurada, agrupa por pessoa e mostra só o
+// estado ATUAL (contrato sem demissão, ou o de demissão mais recente) —
+// os demais contratos ficam disponíveis por buscarHistoricoPorCpf().
 async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
   const tabela = process.env.EXT_DB_TABLE;
   const colunas = colunasConfiguradas();
+  const id = identificarColunas(colunas);
 
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
   const offset = (paginaAtual - 1) * PAGE_SIZE;
 
-  let where = '';
+  let condBusca = ''; // condição da busca, SEM a palavra WHERE (composta com AND onde precisar)
   const paramsWhere = [];
   if (termo && colunas.length) {
     const likes = colunas.map(() => '?? LIKE ?').join(' OR ');
-    where = ` WHERE (${likes})`;
+    condBusca = `(${likes})`;
     colunas.forEach((col) => paramsWhere.push(col, `%${termo}%`));
   }
+  const where = condBusca ? ` WHERE ${condBusca}` : ''; // usado quando é o único filtro da consulta
 
   const selectCols = colunas.length ? mysql.format('??', [colunas]) : '*';
-  const ordem = colunas.length ? mysql.format(' ORDER BY ??', [colunas[0]]) : '';
 
-  const sqlDados = mysql.format(
-    `SELECT ${selectCols} FROM ??${where}${ordem} LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
-    [tabela, ...paramsWhere]
-  );
-  const sqlTotal = mysql.format(`SELECT COUNT(*) AS total FROM ??${where}`, [
-    tabela,
-    ...paramsWhere,
-  ]);
+  let sqlDados;
+  let sqlTotal;
+
+  if (colunas.length && id.cpf) {
+    const grupo = chaveAgrupamento(id);
+    const ordemAtual = ordenacaoEstadoAtual(id);
+    const subconsulta = mysql.format(
+      `SELECT ${selectCols},
+         ROW_NUMBER() OVER (PARTITION BY ${grupo} ORDER BY ${ordemAtual}) AS __rn,
+         COUNT(*) OVER (PARTITION BY ${grupo}) AS __totalContratos
+       FROM ??`,
+      [tabela]
+    );
+
+    const filtroAtual = condBusca ? ` AND ${condBusca}` : '';
+    sqlDados = mysql.format(
+      `SELECT ${selectCols}, __atual.__totalContratos FROM (${subconsulta}) __atual
+       WHERE __atual.__rn = 1${filtroAtual}
+       ORDER BY ??
+       LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
+      [...paramsWhere, colunas[0]]
+    );
+    sqlTotal = mysql.format(
+      `SELECT COUNT(*) AS total FROM (${subconsulta}) __atual WHERE __atual.__rn = 1${filtroAtual}`,
+      paramsWhere
+    );
+  } else {
+    // sem coluna de CPF configurada: não dá pra agrupar com segurança —
+    // mantém o comportamento antigo (uma linha por registro)
+    const ordem = colunas.length ? mysql.format(' ORDER BY ??', [colunas[0]]) : '';
+    sqlDados = mysql.format(
+      `SELECT ${selectCols} FROM ??${where}${ordem} LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
+      [tabela, ...paramsWhere]
+    );
+    sqlTotal = mysql.format(`SELECT COUNT(*) AS total FROM ??${where}`, [
+      tabela,
+      ...paramsWhere,
+    ]);
+  }
 
   const p = getPool();
   const [[rows], [[{ total }]]] = await Promise.all([
@@ -108,22 +190,24 @@ async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
   };
 }
 
-// Identifica, entre as colunas configuradas no .env (nomes variam de
-// instalação pra instalação), quais representam matrícula/nome/cpf/divisão/
-// subdivisão/unidade — por substring, já que não há nomes fixos garantidos.
-function identificarColunas(columns) {
-  const lower = (c) => c.toLowerCase();
-  return {
-    matricula: columns.find((c) => lower(c).includes('matricula')),
-    nome: columns.find((c) => lower(c) === 'nome'),
-    cpf: columns.find((c) => lower(c).includes('cpf')),
-    telefone: columns.find(
-      (c) => lower(c).includes('celular') || lower(c).includes('telefone') || lower(c).includes('fone')
-    ),
-    divisao: columns.find((c) => lower(c).includes('divisao') && !lower(c).includes('subdivisao')),
-    subdivisao: columns.find((c) => lower(c).includes('subdivisao')),
-    unidade: columns.find((c) => lower(c).includes('unidade')),
-  };
+// Todos os OUTROS contratos de uma pessoa (mesmo CPF), do mais recente
+// ao mais antigo — o "atual" já aparece na listagem principal, então
+// vem excluído daqui. Somente leitura, mesma tabela/conexão de sempre.
+async function buscarHistoricoPorCpf(cpf) {
+  const tabela = process.env.EXT_DB_TABLE;
+  const colunas = colunasConfiguradas();
+  const id = identificarColunas(colunas);
+  if (!colunas.length || !id.cpf) return [];
+
+  const ordemAtual = ordenacaoEstadoAtual(id);
+  const sql = mysql.format(`SELECT ?? FROM ?? WHERE ?? = ? ORDER BY ${ordemAtual}`, [
+    colunas,
+    tabela,
+    id.cpf,
+    cpf,
+  ]);
+  const [rows] = await getPool().query(sql);
+  return rows.slice(1); // o primeiro é o contrato atual, já exibido na linha principal
 }
 
 // Busca uma única pessoa pela matrícula (todas as colunas configuradas).
@@ -153,4 +237,5 @@ module.exports = {
   colunasConfiguradas,
   identificarColunas,
   buscarPessoaPorMatricula,
+  buscarHistoricoPorCpf,
 };
