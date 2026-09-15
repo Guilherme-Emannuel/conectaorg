@@ -229,8 +229,9 @@
     function pessoaCardHtml(linha, cat, rotulos) {
       const nomeTxt = cat.nome ? linha[cat.nome] : '(sem nome)';
       const matriculaTxt = cat.matricula ? linha[cat.matricula] : '';
+      const statusClasse = cat.demissao ? (linha[cat.demissao] ? ' card-inativo' : ' card-ativo') : '';
 
-      return `<div class="pessoa-card">
+      return `<div class="pessoa-card${statusClasse}">
         <div class="pessoa-card-topo">
           <div class="pessoa-identidade">
             <div class="pessoa-nome">

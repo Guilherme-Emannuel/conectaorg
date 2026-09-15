@@ -186,7 +186,7 @@
         ? `<button class="tel-link" data-ver-responsavel="${esc(conta.username)}"><strong>${esc(conta.responsavel.nome)}</strong></button>`
         : `<button class="btn-sm" data-vincular-responsavel="${esc(conta.username)}">➕ Vincular</button>`;
 
-      return `<div class="pessoa-card">
+      return `<div class="pessoa-card${ativo ? ' card-ativo' : ' card-inativo'}">
         <div class="pessoa-card-topo">
           <div class="pessoa-identidade">
             <div class="pessoa-nome">
