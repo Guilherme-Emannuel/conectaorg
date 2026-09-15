@@ -942,23 +942,56 @@ button.nav-item {
   font-weight: 600;
 }
 
-/* histórico expandido: contratos anteriores, condensados dentro do cartão */
+/* histórico expandido: contratos anteriores, um por linha bem separada */
 .pessoa-historico-lista {
   margin-top: var(--space-2);
-  padding: var(--space-2) 0 0 var(--space-3);
-  border-top: 1px solid var(--border);
-  border-left: 2px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  background: var(--surface-tint);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+}
+
+.pessoa-historico-titulo {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  padding: 6px var(--space-1) 4px;
 }
 
 .pessoa-historico-item {
-  font-size: 12.5px;
-  color: var(--text-muted);
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 12px;
+  align-items: baseline;
+  gap: 4px var(--space-3);
+  padding: 7px var(--space-1);
+  font-size: 12.5px;
+  border-top: 1px solid var(--border);
+}
+
+.pessoa-historico-item:first-of-type {
+  border-top: none;
+}
+
+.pessoa-historico-periodo {
+  flex-shrink: 0;
+  min-width: 132px;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pessoa-historico-cargo {
+  flex: 1;
+  min-width: 160px;
+  color: var(--text-muted);
+}
+
+.pessoa-historico-matricula {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 11px;
 }
 
 /* ---------- Lista de histórico (compartilhada: gestores, telefones...) ---------- */

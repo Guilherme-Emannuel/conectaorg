@@ -247,15 +247,16 @@
         .filter((c) => c && linha[c])
         .map((c) => linha[c])
         .join(' › ');
-      const periodo = [
-        cat.admissao && linha[cat.admissao] ? formatarData(linha[cat.admissao]) : null,
-        cat.demissao && linha[cat.demissao] ? formatarData(linha[cat.demissao]) : null,
-      ].filter(Boolean).join(' – ');
+      const descricao = [cargoTxt, setorTxt].filter(Boolean).join(' — ');
+
+      const inicio = cat.admissao && linha[cat.admissao] ? formatarData(linha[cat.admissao]) : '?';
+      const fim = cat.demissao && linha[cat.demissao] ? formatarData(linha[cat.demissao]) : '?';
+      const temPeriodo = (cat.admissao && linha[cat.admissao]) || (cat.demissao && linha[cat.demissao]);
 
       return `<div class="pessoa-historico-item">
-        ${cat.matricula ? `<span class="pessoa-matricula">#${esc(linha[cat.matricula])}</span>` : ''}
-        <span>${esc([cargoTxt, setorTxt].filter(Boolean).join(' — ')) || '<span class="muted">Sem cargo/setor informado</span>'}</span>
-        ${periodo ? `<span class="muted">${esc(periodo)}</span>` : ''}
+        ${temPeriodo ? `<span class="pessoa-historico-periodo">${esc(inicio)} – ${esc(fim)}</span>` : ''}
+        <span class="pessoa-historico-cargo">${descricao ? esc(descricao) : '<span class="muted">Sem cargo/setor informado</span>'}</span>
+        ${cat.matricula ? `<span class="pessoa-historico-matricula">#${esc(linha[cat.matricula])}</span>` : ''}
       </div>`;
     }
 
@@ -457,9 +458,10 @@
       const itensHtml = dados.rows.map((linha) => historicoItemHtml(linha, categoriaAtual)).join('');
       card.insertAdjacentHTML(
         'beforeend',
-        `<div class="pessoa-historico-lista" data-hist-de="${esc(cpf)}">${
-          itensHtml || '<p class="muted">Nenhum contrato anterior.</p>'
-        }</div>`
+        `<div class="pessoa-historico-lista" data-hist-de="${esc(cpf)}">
+          <div class="pessoa-historico-titulo">Contratos anteriores</div>
+          ${itensHtml || '<p class="muted" style="padding:0 var(--space-1) 6px">Nenhum contrato anterior.</p>'}
+        </div>`
       );
       botao.textContent = '▲ Ocultar histórico';
     }
