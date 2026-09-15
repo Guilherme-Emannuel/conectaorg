@@ -30,12 +30,7 @@
               placeholder="Buscar em todos os registros...">
             <span class="muted" id="contagem" style="font-size:12.5px"></span>
           </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead id="cabecalho"></thead>
-              <tbody id="linhas"></tbody>
-            </table>
-          </div>
+          <div class="pessoas-lista" id="linhas"></div>
           <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap">
             <button class="btn-sm" id="pag-anterior">« Anterior</button>
             <span class="muted" id="pag-info" style="font-size:12.5px"></span>
@@ -96,16 +91,9 @@
       return c.startsWith('data') || c.includes('_data') || c.includes('date');
     }
 
-    // decide pela coluna o que formatar (genérico: vale pra qualquer tabela)
-    function formatarCelula(coluna, valor) {
-      if (valor === null || valor === undefined || valor === '') return valor;
+    function ehColunaTelefone(coluna) {
       const c = coluna.toLowerCase();
-      if (c.includes('cpf')) return formatarCpf(valor);
-      if (c.includes('celular') || c.includes('telefone') || c.includes('fone')) {
-        return formatarTelefone(valor);
-      }
-      if (ehColunaData(c)) return formatarData(valor);
-      return valor;
+      return c.includes('celular') || c.includes('telefone') || c.includes('fone');
     }
 
     // telefone normalizado (10/11 dígitos com DDD) pra link do WhatsApp,
@@ -116,73 +104,159 @@
       return d.length === 10 || d.length === 11 ? d : null;
     }
 
-    function ehColunaTelefone(coluna) {
-      const c = coluna.toLowerCase();
-      return c.includes('celular') || c.includes('telefone') || c.includes('fone');
-    }
-
-    // monta o conteúdo final da célula (telefones viram botão clicável)
-    function celulaHtml(coluna, valor) {
-      const conteudo = esc(formatarCelula(coluna, valor));
-      if (ehColunaTelefone(coluna)) {
-        const d = telefoneDigitos(valor);
-        if (d) {
-          return `<button class="tel-link" data-tel="${d}" title="Abrir no WhatsApp">${conteudo}</button>`;
-        }
-      }
-      return conteudo;
-    }
-
-    // colunas formatadas não quebram linha (CPF, telefone, datas)
-    function classeCelula(coluna) {
-      if (coluna === COLUNA_ACOES) return ' class="acoes"';
-      const c = coluna.toLowerCase();
-      const semQuebra =
-        c.includes('cpf') || c.includes('celular') || c.includes('telefone') ||
-        c.includes('fone') || ehColunaData(c);
-      return semQuebra ? ' class="nowrap"' : '';
-    }
-
-    // ---- coluna Webmail: cruzada por nome com o banco de e-mails no ----
-    // backend (linha.__webmail já vem pronta); aqui só decide a posição
-    // (entre Celular e o próximo) e o que mostrar quando não há match.
-    const COLUNA_WEBMAIL = '__webmail';
-
-    function comColunaWebmail(columns, labels) {
-      if (columns.includes(COLUNA_WEBMAIL)) return { columns, labels };
-
-      const idx = columns.findIndex((c) => c.toLowerCase().includes('celular'));
-      const posicao = idx === -1 ? columns.length : idx + 1;
-
-      const novasColunas = [...columns];
-      const novosRotulos = [...labels];
-      novasColunas.splice(posicao, 0, COLUNA_WEBMAIL);
-      novosRotulos.splice(posicao, 0, 'WEBMAIL');
-      return { columns: novasColunas, labels: novosRotulos };
-    }
-
-    // ---- coluna Ações: telefone de contato mantido SOMENTE no banco ----
-    // local do ConectaOrg (nunca escreve no banco de RH, que é somente
-    // leitura). Só aparece se existir uma coluna de matrícula na tabela,
-    // usada como chave para ligar o telefone à pessoa certa.
-    const COLUNA_ACOES = '__acoes';
-
-    function colunaMatricula(columns) {
-      return columns.find((c) => c.toLowerCase().includes('matricula'));
-    }
-
-    function colunaCpf(columns) {
-      return columns.find((c) => c.toLowerCase().includes('cpf'));
-    }
-
-    function comColunaAcoes(columns, labels) {
-      if (columns.includes(COLUNA_ACOES) || !colunaMatricula(columns)) {
-        return { columns, labels };
-      }
-      return {
-        columns: [...columns, COLUNA_ACOES],
-        labels: [...labels, 'AÇÕES'],
+    // ---- Cada pessoa vira um CARTÃO (não uma linha de tabela larga): ----
+    // nome e situação em destaque, cargo/setor num resumo, e o resto em
+    // "chips" discretos — sem precisar arrastar a tela pra ver tudo.
+    // As colunas vêm do .env (nomes variam por instalação), então a
+    // categorização abaixo é por palavra-chave, não por nome fixo.
+    function categorizarColunas(columns) {
+      const usadas = new Set();
+      const pick = (teste) => {
+        const c = columns.find((col) => !usadas.has(col) && teste(col.toLowerCase()));
+        if (c) usadas.add(c);
+        return c;
       };
+      const pickTodas = (teste) => {
+        const cs = columns.filter((col) => !usadas.has(col) && teste(col.toLowerCase()));
+        cs.forEach((c) => usadas.add(c));
+        return cs;
+      };
+
+      const nome = pick((c) => c === 'nome');
+      const matricula = pick((c) => c.includes('matricula'));
+      const cpf = pick((c) => c.includes('cpf'));
+      const celular = pick(ehColunaTelefone);
+      const demissao = pick((c) => c.includes('demissao'));
+      const admissao = pick((c) => c.includes('admissao') && !c.includes('nomeacao'));
+      const cargos = pickTodas((c) => c.includes('cargo'));
+      const divisao = pick((c) => c.includes('divisao') && !c.includes('subdivisao'));
+      const subdivisao = pick((c) => c.includes('subdivisao'));
+      const unidade = pick((c) => c.includes('unidade'));
+      const outrasDatas = pickTodas(ehColunaData);
+      const restantes = columns.filter((c) => !usadas.has(c));
+
+      return {
+        nome, matricula, cpf, celular, demissao, admissao,
+        cargos, divisao, subdivisao, unidade, outrasDatas, restantes,
+      };
+    }
+
+    function chipHtml(rotulo, valorHtml, extraClasse) {
+      return `<span class="pessoa-detalhe${extraClasse ? ' ' + extraClasse : ''}">${rotulo ? `${esc(rotulo)} ` : ''}${valorHtml}</span>`;
+    }
+
+    function subtituloDaPessoa(linha, cat) {
+      const cargoTxt = cat.cargos.map((c) => linha[c]).filter(Boolean).join(' · ');
+      const setorPartes = [cat.divisao, cat.subdivisao]
+        .filter((c) => c && linha[c])
+        .map((c) => linha[c]);
+      if (cat.unidade && linha[cat.unidade] && linha[cat.unidade] !== linha[cat.divisao]) {
+        setorPartes.push(linha[cat.unidade]);
+      }
+      const setorTxt = setorPartes.join(' › ');
+      return [cargoTxt, setorTxt].filter(Boolean).join(' — ') || '<span class="muted">Sem cargo/setor informado</span>';
+    }
+
+    function chipsDaPessoa(linha, cat, rotulos) {
+      const chips = [];
+
+      if (cat.cpf && linha[cat.cpf]) {
+        chips.push(chipHtml('CPF', `<strong>${esc(formatarCpf(linha[cat.cpf]))}</strong>`));
+      }
+      if (cat.celular && linha[cat.celular]) {
+        const d = telefoneDigitos(linha[cat.celular]);
+        const valorTxt = esc(formatarTelefone(linha[cat.celular]));
+        const valor = d
+          ? `<button class="tel-link" data-tel="${d}" title="Abrir no WhatsApp"><strong>${valorTxt}</strong></button>`
+          : `<strong>${valorTxt}</strong>`;
+        chips.push(chipHtml('📱', valor));
+      }
+
+      const email = linha.__webmail;
+      chips.push(
+        email
+          ? chipHtml('✉️', `<strong>${esc(email)}</strong>`)
+          : chipHtml('✉️', '<span class="muted">sem webmail encontrado</span>')
+      );
+
+      if (cat.admissao && linha[cat.admissao]) {
+        chips.push(chipHtml('Admissão', `<strong>${esc(formatarData(linha[cat.admissao]))}</strong>`));
+      }
+      cat.outrasDatas.forEach((c) => {
+        if (linha[c]) chips.push(chipHtml(rotulos[c] || c, `<strong>${esc(formatarData(linha[c]))}</strong>`));
+      });
+      cat.restantes.forEach((c) => {
+        if (linha[c] !== null && linha[c] !== undefined && linha[c] !== '') {
+          chips.push(chipHtml(rotulos[c] || c, `<strong>${esc(linha[c])}</strong>`));
+        }
+      });
+
+      return chips.join('');
+    }
+
+    function botoesAcaoHtml(linha, cat) {
+      const matricula = cat.matricula ? linha[cat.matricula] : null;
+      if (!matricula) return '';
+
+      const temCelular = Boolean(cat.celular && linha[cat.celular]);
+      const rotuloTel = temCelular ? '✎ Editar telefone' : '➕ Adicionar telefone';
+      const botaoTel = `<button class="btn-sm" data-acao-telefone="${esc(matricula)}">${rotuloTel}</button>`;
+
+      const outros = Number(linha.__totalContratos || 0) - 1;
+      const cpf = cat.cpf ? linha[cat.cpf] : null;
+      const botaoHist =
+        outros > 0 && cpf
+          ? `<button class="btn-sm" data-acao-historico="${esc(cpf)}" data-rotulo-base="🕘 Histórico (${outros})">🕘 Histórico (${outros})</button>`
+          : '';
+
+      return `<div class="pessoa-acoes">${botaoTel}${botaoHist}</div>`;
+    }
+
+    function statusBadgeHtml(linha, cat) {
+      if (!cat.demissao) return '';
+      const demissaoValor = linha[cat.demissao];
+      return demissaoValor
+        ? `<span class="role-badge inativo" title="Encerrado">Encerrado em ${esc(formatarData(demissaoValor))}</span>`
+        : '<span class="role-badge ativo">Ativo</span>';
+    }
+
+    function pessoaCardHtml(linha, cat, rotulos) {
+      const nomeTxt = cat.nome ? linha[cat.nome] : '(sem nome)';
+      const matriculaTxt = cat.matricula ? linha[cat.matricula] : '';
+
+      return `<div class="pessoa-card">
+        <div class="pessoa-card-topo">
+          <div class="pessoa-identidade">
+            <div class="pessoa-nome">
+              ${esc(nomeTxt)}
+              ${matriculaTxt ? `<span class="pessoa-matricula">#${esc(matriculaTxt)}</span>` : ''}
+              ${statusBadgeHtml(linha, cat)}
+            </div>
+            <div class="pessoa-cargo-setor">${subtituloDaPessoa(linha, cat)}</div>
+          </div>
+          ${botoesAcaoHtml(linha, cat)}
+        </div>
+        <div class="pessoa-card-detalhes">${chipsDaPessoa(linha, cat, rotulos)}</div>
+      </div>`;
+    }
+
+    // versão condensada de uma linha do histórico (um contrato anterior)
+    function historicoItemHtml(linha, cat) {
+      const cargoTxt = cat.cargos.map((c) => linha[c]).filter(Boolean).join(' · ');
+      const setorTxt = [cat.divisao, cat.subdivisao]
+        .filter((c) => c && linha[c])
+        .map((c) => linha[c])
+        .join(' › ');
+      const periodo = [
+        cat.admissao && linha[cat.admissao] ? formatarData(linha[cat.admissao]) : null,
+        cat.demissao && linha[cat.demissao] ? formatarData(linha[cat.demissao]) : null,
+      ].filter(Boolean).join(' – ');
+
+      return `<div class="pessoa-historico-item">
+        ${cat.matricula ? `<span class="pessoa-matricula">#${esc(linha[cat.matricula])}</span>` : ''}
+        <span>${esc([cargoTxt, setorTxt].filter(Boolean).join(' — ')) || '<span class="muted">Sem cargo/setor informado</span>'}</span>
+        ${periodo ? `<span class="muted">${esc(periodo)}</span>` : ''}
+      </div>`;
     }
 
     // busca e paginação acontecem no SERVIDOR — aqui só exibimos
@@ -190,55 +264,22 @@
     let termoBusca = '';
     let totalPaginas = 1;
 
-    // colunas da última renderização (com Webmail/Ações) — reaproveitadas
-    // pra montar as linhas de histórico com o mesmo layout da tabela
-    let colunasCompletas = [];
+    // categorização + rótulos da última renderização — reaproveitados
+    // pra montar o histórico com o mesmo critério dos cartões
+    let categoriaAtual = null;
+    let rotulosAtuais = {};
 
     function renderizar(dados) {
-      // cabeçalhos usam os rótulos configurados; os dados seguem pelas colunas
-      const comWebmail = comColunaWebmail(dados.columns, dados.labels || dados.columns);
-      const { columns, labels } = comColunaAcoes(comWebmail.columns, comWebmail.labels);
-      colunasCompletas = columns;
+      const rotulos = {};
+      dados.columns.forEach((c, i) => { rotulos[c] = (dados.labels || dados.columns)[i]; });
+      rotulosAtuais = rotulos;
 
-      const colMatricula = colunaMatricula(dados.columns);
-      const colCelular = dados.columns.find((c) => ehColunaTelefone(c));
-      const colCpf = colunaCpf(dados.columns);
-
-      document.getElementById('cabecalho').innerHTML =
-        `<tr>${labels.map((r) => `<th>${esc(r)}</th>`).join('')}</tr>`;
-
-      const celula = (coluna, linha) => {
-        if (coluna === COLUNA_WEBMAIL) {
-          const email = linha[COLUNA_WEBMAIL];
-          return email
-            ? esc(email)
-            : '<span class="muted" title="Nenhum e-mail encontrado com esse nome">—</span>';
-        }
-        if (coluna === COLUNA_ACOES) {
-          const matricula = linha[colMatricula];
-          const temCelular = Boolean(colCelular && linha[colCelular]);
-          const rotuloTel = temCelular ? '✎ Editar telefone' : '➕ Adicionar telefone';
-          const botaoTel = `<button class="btn-sm" data-acao-telefone="${esc(matricula)}">${rotuloTel}</button>`;
-
-          const outros = Number(linha.__totalContratos || 0) - 1;
-          const cpf = colCpf ? linha[colCpf] : null;
-          const botaoHist =
-            outros > 0 && cpf
-              ? `<button class="btn-sm" data-acao-historico="${esc(cpf)}" data-rotulo-base="🕘 Histórico (${outros})">🕘 Histórico (${outros})</button>`
-              : '';
-          return botaoTel + botaoHist;
-        }
-        return celulaHtml(coluna, linha[coluna]);
-      };
+      const cat = categorizarColunas(dados.columns);
+      categoriaAtual = cat;
 
       document.getElementById('linhas').innerHTML =
-        dados.rows
-          .map(
-            (linha) =>
-              `<tr>${columns.map((c) => `<td${classeCelula(c)}>${celula(c, linha)}</td>`).join('')}</tr>`
-          )
-          .join('') ||
-        `<tr><td colspan="${Math.max(1, columns.length)}" class="muted">Nenhum resultado.</td></tr>`;
+        dados.rows.map((linha) => pessoaCardHtml(linha, cat, rotulos)).join('') ||
+        '<p class="muted">Nenhum resultado.</p>';
 
       document.getElementById('contagem').textContent =
         `${dados.total.toLocaleString('pt-BR')} registro(s)` +
@@ -324,8 +365,8 @@
 
     // ---- telefone de contato: SOMENTE no banco local do ConectaOrg. ----
     // Nunca altera o banco de RH (externo, somente leitura) — o número
-    // "oficial" mostrado na coluna Celular continua vindo de lá sem
-    // qualquer modificação. Isto é só um contato complementar nosso.
+    // "oficial" mostrado no cartão continua vindo de lá sem qualquer
+    // modificação. Isto é só um contato complementar nosso.
     async function abrirTelefoneContato(matricula) {
       const res = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefones`);
       if (!res || !res.ok) {
@@ -393,29 +434,13 @@
     }
 
     // ---- histórico de contratos: mesmo CPF, ordem do mais recente pro ----
-    // mais antigo. Expande/recolhe direto na tabela (linhas extras logo
-    // abaixo da linha atual), sem abrir modal.
-    function celulaHistorico(coluna, linha) {
-      if (coluna === COLUNA_WEBMAIL || coluna === COLUNA_ACOES) {
-        return '<span class="muted">—</span>';
-      }
-      return celulaHtml(coluna, linha[coluna]);
-    }
-
-    function linhaHistoricoHtml(linha, cpf) {
-      return `<tr class="linha-historico" data-hist-de="${esc(cpf)}">${colunasCompletas
-        .map((c) => `<td${classeCelula(c)}>${celulaHistorico(c, linha)}</td>`)
-        .join('')}</tr>`;
-    }
-
+    // mais antigo. Expande/recolhe dentro do próprio cartão, sem modal.
     async function alternarHistorico(cpf, botao) {
-      const trAtual = botao.closest('tr');
-      const jaAberto = trAtual.nextElementSibling?.dataset.histDe === cpf;
+      const card = botao.closest('.pessoa-card');
+      const existente = card.querySelector(`.pessoa-historico-lista[data-hist-de="${cpf}"]`);
 
-      if (jaAberto) {
-        while (trAtual.nextElementSibling?.dataset.histDe === cpf) {
-          trAtual.nextElementSibling.remove();
-        }
+      if (existente) {
+        existente.remove();
         botao.textContent = botao.dataset.rotuloBase;
         return;
       }
@@ -429,11 +454,12 @@
       }
 
       const dados = await res.json();
-      const linhasHtml = dados.rows.map((linha) => linhaHistoricoHtml(linha, cpf)).join('');
-      trAtual.insertAdjacentHTML(
-        'afterend',
-        linhasHtml ||
-          `<tr class="linha-historico" data-hist-de="${esc(cpf)}"><td colspan="${colunasCompletas.length}" class="muted">Nenhum contrato anterior.</td></tr>`
+      const itensHtml = dados.rows.map((linha) => historicoItemHtml(linha, categoriaAtual)).join('');
+      card.insertAdjacentHTML(
+        'beforeend',
+        `<div class="pessoa-historico-lista" data-hist-de="${esc(cpf)}">${
+          itensHtml || '<p class="muted">Nenhum contrato anterior.</p>'
+        }</div>`
       );
       botao.textContent = '▲ Ocultar histórico';
     }
