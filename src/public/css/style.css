@@ -711,6 +711,14 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+/* linha expandida de histórico (contratos anteriores da mesma pessoa) */
+.linha-historico td {
+  background: var(--surface-tint);
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .btn-sm {

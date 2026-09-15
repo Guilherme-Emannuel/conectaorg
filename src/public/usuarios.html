@@ -135,6 +135,7 @@
 
     // colunas formatadas não quebram linha (CPF, telefone, datas)
     function classeCelula(coluna) {
+      if (coluna === COLUNA_ACOES) return ' class="acoes"';
       const c = coluna.toLowerCase();
       const semQuebra =
         c.includes('cpf') || c.includes('celular') || c.includes('telefone') ||
@@ -170,6 +171,10 @@
       return columns.find((c) => c.toLowerCase().includes('matricula'));
     }
 
+    function colunaCpf(columns) {
+      return columns.find((c) => c.toLowerCase().includes('cpf'));
+    }
+
     function comColunaAcoes(columns, labels) {
       if (columns.includes(COLUNA_ACOES) || !colunaMatricula(columns)) {
         return { columns, labels };
@@ -185,13 +190,19 @@
     let termoBusca = '';
     let totalPaginas = 1;
 
+    // colunas da última renderização (com Webmail/Ações) — reaproveitadas
+    // pra montar as linhas de histórico com o mesmo layout da tabela
+    let colunasCompletas = [];
+
     function renderizar(dados) {
       // cabeçalhos usam os rótulos configurados; os dados seguem pelas colunas
       const comWebmail = comColunaWebmail(dados.columns, dados.labels || dados.columns);
       const { columns, labels } = comColunaAcoes(comWebmail.columns, comWebmail.labels);
+      colunasCompletas = columns;
 
       const colMatricula = colunaMatricula(dados.columns);
       const colCelular = dados.columns.find((c) => ehColunaTelefone(c));
+      const colCpf = colunaCpf(dados.columns);
 
       document.getElementById('cabecalho').innerHTML =
         `<tr>${labels.map((r) => `<th>${esc(r)}</th>`).join('')}</tr>`;
@@ -206,8 +217,16 @@
         if (coluna === COLUNA_ACOES) {
           const matricula = linha[colMatricula];
           const temCelular = Boolean(colCelular && linha[colCelular]);
-          const rotulo = temCelular ? '✎ Editar telefone' : '➕ Adicionar telefone';
-          return `<button class="btn-sm" data-acao-telefone="${esc(matricula)}">${rotulo}</button>`;
+          const rotuloTel = temCelular ? '✎ Editar telefone' : '➕ Adicionar telefone';
+          const botaoTel = `<button class="btn-sm" data-acao-telefone="${esc(matricula)}">${rotuloTel}</button>`;
+
+          const outros = Number(linha.__totalContratos || 0) - 1;
+          const cpf = colCpf ? linha[colCpf] : null;
+          const botaoHist =
+            outros > 0 && cpf
+              ? `<button class="btn-sm" data-acao-historico="${esc(cpf)}" data-rotulo-base="🕘 Histórico (${outros})">🕘 Histórico (${outros})</button>`
+              : '';
+          return botaoTel + botaoHist;
         }
         return celulaHtml(coluna, linha[coluna]);
       };
@@ -373,6 +392,52 @@
       overlay.classList.add('open');
     }
 
+    // ---- histórico de contratos: mesmo CPF, ordem do mais recente pro ----
+    // mais antigo. Expande/recolhe direto na tabela (linhas extras logo
+    // abaixo da linha atual), sem abrir modal.
+    function celulaHistorico(coluna, linha) {
+      if (coluna === COLUNA_WEBMAIL || coluna === COLUNA_ACOES) {
+        return '<span class="muted">—</span>';
+      }
+      return celulaHtml(coluna, linha[coluna]);
+    }
+
+    function linhaHistoricoHtml(linha, cpf) {
+      return `<tr class="linha-historico" data-hist-de="${esc(cpf)}">${colunasCompletas
+        .map((c) => `<td${classeCelula(c)}>${celulaHistorico(c, linha)}</td>`)
+        .join('')}</tr>`;
+    }
+
+    async function alternarHistorico(cpf, botao) {
+      const trAtual = botao.closest('tr');
+      const jaAberto = trAtual.nextElementSibling?.dataset.histDe === cpf;
+
+      if (jaAberto) {
+        while (trAtual.nextElementSibling?.dataset.histDe === cpf) {
+          trAtual.nextElementSibling.remove();
+        }
+        botao.textContent = botao.dataset.rotuloBase;
+        return;
+      }
+
+      botao.textContent = 'Carregando...';
+      const res = await apiFetch(`/api/external-users/historico/${encodeURIComponent(cpf)}`);
+      if (!res || !res.ok) {
+        alert('Erro ao carregar o histórico.');
+        botao.textContent = botao.dataset.rotuloBase;
+        return;
+      }
+
+      const dados = await res.json();
+      const linhasHtml = dados.rows.map((linha) => linhaHistoricoHtml(linha, cpf)).join('');
+      trAtual.insertAdjacentHTML(
+        'afterend',
+        linhasHtml ||
+          `<tr class="linha-historico" data-hist-de="${esc(cpf)}"><td colspan="${colunasCompletas.length}" class="muted">Nenhum contrato anterior.</td></tr>`
+      );
+      botao.textContent = '▲ Ocultar histórico';
+    }
+
     document.getElementById('linhas').addEventListener('click', (event) => {
       const tel = event.target.closest('[data-tel]');
       if (tel) {
@@ -380,7 +445,12 @@
         return;
       }
       const acaoTel = event.target.closest('[data-acao-telefone]');
-      if (acaoTel) abrirTelefoneContato(acaoTel.dataset.acaoTelefone);
+      if (acaoTel) {
+        abrirTelefoneContato(acaoTel.dataset.acaoTelefone);
+        return;
+      }
+      const acaoHist = event.target.closest('[data-acao-historico]');
+      if (acaoHist) alternarHistorico(acaoHist.dataset.acaoHistorico, acaoHist);
     });
 
     document.getElementById('pag-anterior').addEventListener('click', () => {
