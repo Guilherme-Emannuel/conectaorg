@@ -4,6 +4,7 @@ const {
   mapaRotulos,
   buscarPessoaPorMatricula,
   buscarHistoricoPorCpf,
+  estatisticasUsuariosExternos,
 } = require('../lib/externalDb');
 const emailsDb = require('../lib/emailsDb');
 
@@ -20,6 +21,7 @@ async function listar(req, res) {
     const resultado = await consultarUsuariosExternos({
       q: req.query.q || '',
       page: req.query.page || 1,
+      status: req.query.status || '',
     });
     // __totalContratos é metadado interno (decide o botão de histórico no
     // front), não uma coluna real da tabela — não entra na lista exibida
@@ -103,4 +105,24 @@ async function historico(req, res) {
   }
 }
 
-module.exports = { listar, detalhe, historico };
+// GET /api/external-users/stats — total, ativos e exonerados (somente ADMIN)
+async function stats(req, res) {
+  if (!configurado()) {
+    return res.status(503).json({
+      error:
+        'Conexão externa não configurada. Preencha as variáveis EXT_DB_* no arquivo .env.',
+    });
+  }
+
+  try {
+    const dados = await estatisticasUsuariosExternos();
+    res.json(dados || { total: null, ativos: null, exonerados: null });
+  } catch (err) {
+    console.error('Erro ao consultar estatísticas externas:', err.message);
+    res.status(502).json({
+      error: 'Não foi possível consultar o banco externo. Verifique a conexão no .env.',
+    });
+  }
+}
+
+module.exports = { listar, detalhe, historico, stats };

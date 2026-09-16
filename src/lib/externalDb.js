@@ -115,7 +115,7 @@ function chaveAgrupamento(id) {
 // Quando há coluna de CPF configurada, agrupa por pessoa e mostra só o
 // estado ATUAL (contrato sem demissão, ou o de demissão mais recente) —
 // os demais contratos ficam disponíveis por buscarHistoricoPorCpf().
-async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
+async function consultarUsuariosExternos({ q = '', page = 1, status = '' } = {}) {
   const tabela = process.env.EXT_DB_TABLE;
   const colunas = colunasConfiguradas();
   const id = identificarColunas(colunas);
@@ -124,13 +124,22 @@ async function consultarUsuariosExternos({ q = '', page = 1 } = {}) {
   const paginaAtual = Math.max(1, Number(page) || 1);
   const offset = (paginaAtual - 1) * PAGE_SIZE;
 
-  let condBusca = ''; // condição da busca, SEM a palavra WHERE (composta com AND onde precisar)
+  // condições SEM a palavra WHERE (compostas com AND onde precisar) — os
+  // parâmetros de cada uma entram em params na mesma ordem em que a
+  // condição aparece na string final
+  const condicoesLista = [];
   const paramsWhere = [];
   if (termo && colunas.length) {
     const likes = colunas.map(() => '?? LIKE ?').join(' OR ');
-    condBusca = `(${likes})`;
+    condicoesLista.push(`(${likes})`);
     colunas.forEach((col) => paramsWhere.push(col, `%${termo}%`));
   }
+  if (status === 'ativo' && id.demissao) {
+    condicoesLista.push(mysql.format("(?? IS NULL OR ?? = '')", [id.demissao, id.demissao]));
+  } else if (status === 'exonerado' && id.demissao) {
+    condicoesLista.push(mysql.format("(?? IS NOT NULL AND ?? <> '')", [id.demissao, id.demissao]));
+  }
+  const condBusca = condicoesLista.join(' AND ');
   const where = condBusca ? ` WHERE ${condBusca}` : ''; // usado quando é o único filtro da consulta
 
   const selectCols = colunas.length ? mysql.format('??', [colunas]) : '*';
@@ -210,6 +219,39 @@ async function buscarHistoricoPorCpf(cpf) {
   return rows.slice(1); // o primeiro é o contrato atual, já exibido na linha principal
 }
 
+// Estatísticas da tela de Usuários: total de pessoas (já deduplicado por
+// vínculo único) e quantas estão ativas (sem data de encerramento) ou
+// exoneradas — usado pelos cards de filtro grandes, tipo os do Webmail.
+// Sem coluna de CPF ou de encerramento configurada, não dá pra calcular
+// com segurança: retorna null e a tela esconde os cards.
+async function estatisticasUsuariosExternos() {
+  const tabela = process.env.EXT_DB_TABLE;
+  const colunas = colunasConfiguradas();
+  const id = identificarColunas(colunas);
+  if (!colunas.length || !id.cpf || !id.demissao) return null;
+
+  const grupo = chaveAgrupamento(id);
+  const ordemAtual = ordenacaoEstadoAtual(id);
+  const subconsulta = mysql.format(
+    `SELECT ??, ROW_NUMBER() OVER (PARTITION BY ${grupo} ORDER BY ${ordemAtual}) AS __rn FROM ??`,
+    [id.demissao, tabela]
+  );
+
+  const sql = mysql.format(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(CASE WHEN (?? IS NULL OR ?? = '') THEN 1 ELSE 0 END) AS ativos
+     FROM (${subconsulta}) __t
+     WHERE __t.__rn = 1`,
+    [id.demissao, id.demissao]
+  );
+
+  const [[{ total, ativos }]] = await getPool().query(sql);
+  const totalNum = Number(total);
+  const ativosNum = Number(ativos) || 0;
+  return { total: totalNum, ativos: ativosNum, exonerados: totalNum - ativosNum };
+}
+
 // Busca uma única pessoa pela matrícula (todas as colunas configuradas).
 // Somente leitura — mesma tabela/conexão de consultarUsuariosExternos.
 async function buscarPessoaPorMatricula(matricula) {
@@ -238,4 +280,5 @@ module.exports = {
   identificarColunas,
   buscarPessoaPorMatricula,
   buscarHistoricoPorCpf,
+  estatisticasUsuariosExternos,
 };
