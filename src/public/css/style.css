@@ -1073,6 +1073,13 @@ button.nav-item {
   flex-wrap: wrap;
 }
 
+.hist-pessoa {
+  margin: 6px 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .badge-atual {
   display: inline-flex;
   background: var(--success);

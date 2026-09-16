@@ -580,6 +580,286 @@ listContainer.addEventListener('click', (event) => {
   }
 });
 
+// ---------- Vínculo do gestor com uma pessoa do RH externo (ADMIN) ----------
+// Somente leitura no banco de RH — o vínculo em si mora só no ConectaOrg,
+// no próprio registro do histórico de gestores. Não interfere em nada da
+// troca de gestor nem na documentação exigida pra isso.
+function somenteDigitos(valor) {
+  return String(valor ?? '').replace(/\D/g, '');
+}
+
+function formatarCpf(valor) {
+  const d = somenteDigitos(valor);
+  if (d.length !== 11) return valor;
+  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
+function formatarTelefone(valor) {
+  let d = somenteDigitos(valor).replace(/^0+/, '');
+  if (d.length === 9 || d.length === 8) d = '67' + d;
+  if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  return valor;
+}
+
+function telefoneDigitos(valor) {
+  let d = somenteDigitos(valor).replace(/^0+/, '');
+  if (d.length === 9 || d.length === 8) d = '67' + d;
+  return d.length === 10 || d.length === 11 ? d : null;
+}
+
+function ehColunaTelefone(coluna) {
+  const c = coluna.toLowerCase();
+  return c.includes('celular') || c.includes('telefone') || c.includes('fone');
+}
+
+function ehColunaData(coluna) {
+  const c = coluna.toLowerCase();
+  return c.startsWith('data') || c.includes('_data') || c.includes('date');
+}
+
+function formatarData(valor) {
+  if (!valor) return '—';
+  const m = String(valor).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!m) return valor;
+  const data = `${m[3]}/${m[2]}/${m[1]}`;
+  const hora = m[4] && `${m[4]}:${m[5]}` !== '00:00' ? ` ${m[4]}:${m[5]}` : '';
+  return data + hora;
+}
+
+function formatarValorCampo(coluna, valor) {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  const c = coluna.toLowerCase();
+  if (c.includes('cpf')) return formatarCpf(valor);
+  if (ehColunaTelefone(c)) return formatarTelefone(valor);
+  if (ehColunaData(c)) return formatarData(valor);
+  return valor;
+}
+
+function abrirWhatsapp(digitos) {
+  const numeroFormatado = formatarTelefone(digitos);
+  const internacional = `55${digitos}`;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:360px">
+      <h3>Abrir no WhatsApp</h3>
+      <p class="muted" style="margin-bottom:15px">Conversar com <strong>${esc(numeroFormatado)}</strong></p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" class="btn-primary" id="wa-web">🌐 WhatsApp Web (navegador)</button>
+        <button type="button" class="btn-primary" id="wa-app">💻 Aplicativo instalado no PC</button>
+        <button type="button" class="btn-secondary" id="wa-cancelar">Cancelar</button>
+      </div>
+    </div>`;
+
+  document.getElementById('wa-web').onclick = () => {
+    window.open(`https://web.whatsapp.com/send?phone=${internacional}`, '_blank', 'noopener');
+    fecharModal();
+  };
+  document.getElementById('wa-app').onclick = () => {
+    window.location.href = `whatsapp://send?phone=${internacional}`;
+    fecharModal();
+  };
+  document.getElementById('wa-cancelar').onclick = fecharModal;
+  overlay.classList.add('open');
+}
+
+// telefone de contato mantido SOMENTE no ConectaOrg (nunca altera o RH)
+async function abrirTelefoneContatoGestor(matricula, aoSalvar) {
+  const res = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefones`);
+  if (!res || !res.ok) {
+    alert('Erro ao carregar o histórico de telefones.');
+    return;
+  }
+  const historico = await res.json();
+  const atual = historico.find((t) => t.atual);
+
+  const itemHtml = (t) => `
+    <div class="hist-item${t.atual ? ' atual' : ''}">
+      <div class="hist-head">
+        <strong>${esc(formatarTelefone(t.telefone))}</strong>
+        ${t.atual ? '<span class="badge-atual">Atual</span>' : ''}
+      </div>
+      <div class="hist-data">Salvo em ${new Date(t.criadoEm).toLocaleDateString('pt-BR')}</div>
+    </div>`;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <h3>Telefone de contato</h3>
+      <p class="muted" style="margin-top:-10px;margin-bottom:14px">
+        Mantido apenas no ConectaOrg — não altera o cadastro de origem.
+      </p>
+      <div class="hist-lista" style="max-height:200px">
+        ${historico.map(itemHtml).join('') || '<p class="muted">Nenhum número salvo ainda.</p>'}
+      </div>
+      <div class="field">
+        <label for="tel-contato-novo">Número atualizado</label>
+        <input id="tel-contato-novo" value="${esc(atual ? atual.telefone : '')}" placeholder="(67) 99999-0000">
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="tel-contato-cancelar">Cancelar</button>
+        <button type="button" class="btn-primary" id="tel-contato-salvar">Salvar</button>
+      </div>
+    </div>`;
+
+  document.getElementById('tel-contato-cancelar').onclick = fecharModal;
+  document.getElementById('tel-contato-salvar').onclick = async () => {
+    const numero = document.getElementById('tel-contato-novo').value.trim();
+    if (!numero) {
+      alert('Informe o número de telefone.');
+      return;
+    }
+    const resp = await apiFetch(`/api/contatos/${encodeURIComponent(matricula)}/telefone`, {
+      method: 'PUT',
+      body: JSON.stringify({ telefone: numero }),
+    });
+    if (!resp || !resp.ok) {
+      alert(resp ? (await resp.json()).error : 'Erro ao salvar.');
+      return;
+    }
+    mostrarToast('Telefone de contato foi atualizado com sucesso');
+    if (aoSalvar) aoSalvar();
+    else fecharModal();
+  };
+  overlay.classList.add('open');
+}
+
+// "mais informações": todos os dados da pessoa vinculada (Usuários Dados Completos)
+async function abrirMaisInformacoesGestor(matricula) {
+  const res = await apiFetch(`/api/external-users/${encodeURIComponent(matricula)}`);
+  if (!res || !res.ok) {
+    alert('Erro ao carregar os dados da pessoa.');
+    return;
+  }
+  const { columns, labels, linha } = await res.json();
+  const colCelular = columns.find((c) => ehColunaTelefone(c));
+
+  const linhaCampo = (coluna, rotulo) => {
+    const valor = linha[coluna];
+    let conteudo = esc(formatarValorCampo(coluna, valor));
+    if (ehColunaTelefone(coluna)) {
+      const d = telefoneDigitos(valor);
+      if (d) conteudo = `<button class="tel-link" data-tel="${d}">${conteudo}</button>`;
+    }
+    return `<tr><td class="muted">${esc(rotulo)}</td><td>${conteudo}</td></tr>`;
+  };
+
+  const temCelular = Boolean(colCelular && linha[colCelular]);
+  const acoesHtml = `<tr><td class="muted">AÇÕES</td><td>
+    <button class="btn-sm" id="mi-editar-telefone">${temCelular ? '✎ Editar telefone de contato' : '➕ Adicionar telefone de contato'}</button>
+  </td></tr>`;
+
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:480px">
+      <h3>${esc(linha[columns.find((c) => c.toLowerCase() === 'nome')] || 'Dados da pessoa')}</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <tbody>
+            ${columns.map((c, i) => linhaCampo(c, labels[i])).join('')}
+            ${acoesHtml}
+          </tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="mi-fechar">Fechar</button>
+      </div>
+    </div>`;
+
+  overlay.querySelectorAll('[data-tel]').forEach((btn) => {
+    btn.onclick = () => abrirWhatsapp(btn.dataset.tel);
+  });
+  document.getElementById('mi-editar-telefone').onclick = () =>
+    abrirTelefoneContatoGestor(matricula, () => abrirMaisInformacoesGestor(matricula));
+  document.getElementById('mi-fechar').onclick = fecharModal;
+  overlay.classList.add('open');
+}
+
+// confirmação antes de gravar o vínculo do gestor
+function confirmarVincularGestor(histId, matricula, nome, aoVincular) {
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:380px">
+      <h3>Confirmar vínculo</h3>
+      <p class="muted">Tem certeza que deseja vincular <strong>${esc(nome)}</strong> a este gestor?</p>
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="conf-nao">Cancelar</button>
+        <button type="button" class="btn-primary" id="conf-sim">Sim, vincular</button>
+      </div>
+    </div>`;
+
+  document.getElementById('conf-nao').onclick = () => abrirBuscarPessoaGestor(histId, aoVincular);
+  document.getElementById('conf-sim').onclick = async () => {
+    const resp = await apiFetch(`/api/organograma/gestores/${histId}/matricula`, {
+      method: 'PUT',
+      body: JSON.stringify({ matricula }),
+    });
+    if (!resp || !resp.ok) {
+      alert(resp ? (await resp.json()).error : 'Erro ao vincular pessoa.');
+      return;
+    }
+    fecharModal();
+    mostrarToast('Gestor vinculado com sucesso');
+    if (aoVincular) aoVincular();
+  };
+  overlay.classList.add('open');
+}
+
+// busca de pessoas no RH (somente leitura) pra escolher quem vincular ao gestor
+let buscaPessoaGestorTimer = null;
+async function abrirBuscarPessoaGestor(histId, aoVincular) {
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <h3>Vincular pessoa ao gestor</h3>
+      <input type="search" id="rp-filtro" class="search-input" placeholder="Buscar por nome ou CPF..." style="width:100%;margin-bottom:12px">
+      <div class="hist-lista" id="rp-lista" style="max-height:320px"></div>
+      <div class="actions">
+        <button type="button" class="btn-secondary" id="rp-fechar">Fechar</button>
+      </div>
+    </div>`;
+  document.getElementById('rp-fechar').onclick = fecharModal;
+  overlay.classList.add('open');
+
+  const listaEl = document.getElementById('rp-lista');
+
+  async function buscar(q) {
+    listaEl.innerHTML = '<p class="muted">Buscando...</p>';
+    const params = new URLSearchParams({ page: 1 });
+    if (q) params.set('q', q);
+    const res = await apiFetch(`/api/external-users/buscar-pessoas?${params}`);
+    if (!res || !res.ok) {
+      listaEl.innerHTML = '<p class="muted">Erro ao buscar pessoas.</p>';
+      return;
+    }
+    const dados = await res.json();
+    listaEl.innerHTML =
+      dados.rows
+        .map(
+          (p) => `
+      <div class="pessoa-item" data-matricula="${esc(p.matricula)}" data-nome="${esc(p.nome)}">
+        <strong>${esc(p.nome)}</strong>
+        <div class="hist-data">
+          ${p.cpf ? `CPF: ${esc(formatarCpf(p.cpf))}` : ''}
+          ${p.cpf ? ' • ' : ''}${p.telefone ? esc(formatarTelefone(p.telefone)) : 'Sem Telefone Cadastrado'}
+        </div>
+        <div class="hist-data">
+          ${[p.divisaoNome, p.subdivisaoNome, p.unidadeNome].filter(Boolean).map(esc).join(' • ')}
+        </div>
+      </div>`
+        )
+        .join('') || '<p class="muted">Nenhuma pessoa encontrada.</p>';
+
+    listaEl.querySelectorAll('[data-matricula]').forEach((item) => {
+      item.onclick = () =>
+        confirmarVincularGestor(histId, item.dataset.matricula, item.dataset.nome, aoVincular);
+    });
+  }
+
+  document.getElementById('rp-filtro').addEventListener('input', (e) => {
+    clearTimeout(buscaPessoaGestorTimer);
+    buscaPessoaGestorTimer = setTimeout(() => buscar(e.target.value.trim()), 350);
+  });
+
+  buscar('');
+}
+
 // ---------- Modal de histórico de gestores (somente ADMIN) ----------
 async function abrirModalHistorico(id) {
   if (!isAdmin) return;
@@ -617,6 +897,14 @@ async function abrirModalHistorico(id) {
         ${g.atual ? '<span class="badge-atual">Gestor Atual</span>' : ''}
       </div>
       <div class="hist-data">Adicionado como gestor em ${new Date(g.inicio).toLocaleDateString('pt-BR')}</div>
+      <div class="hist-pessoa">
+        ${
+          g.matricula
+            ? `<button class="btn-sm" data-verpessoa="${g.id}" data-matricula="${esc(g.matricula)}">ℹ️ Mais informações</button>
+               <button class="btn-sm" data-vincularpessoa="${g.id}">🔗 Trocar vínculo</button>`
+            : `<button class="btn-sm" data-vincularpessoa="${g.id}">🔗 Vincular pessoa do RH</button>`
+        }
+      </div>
       <div class="hist-doc">
         ${
           g.docUrl
@@ -686,6 +974,15 @@ async function abrirModalHistorico(id) {
       const form = document.getElementById(`hist-form-${btn.dataset.editdoc}`);
       form.style.display = form.style.display === 'none' ? 'block' : 'none';
     };
+  });
+
+  // vincular/trocar/ver a pessoa do RH ligada a este gestor
+  overlay.querySelectorAll('[data-verpessoa]').forEach((btn) => {
+    btn.onclick = () => abrirMaisInformacoesGestor(btn.dataset.matricula);
+  });
+  overlay.querySelectorAll('[data-vincularpessoa]').forEach((btn) => {
+    btn.onclick = () =>
+      abrirBuscarPessoaGestor(Number(btn.dataset.vincularpessoa), () => abrirModalHistorico(id));
   });
 
   // alterna entre os campos padrão (número/URL), Diário Oficial (só URL)
