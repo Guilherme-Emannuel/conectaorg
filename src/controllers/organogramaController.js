@@ -1,6 +1,5 @@
 const prisma = require('../lib/prisma');
 const { gestorValido, padronizarNomeGestor } = require('../lib/nomes');
-const { buscarPessoaPorMatricula } = require('../lib/externalDb');
 
 // GET /api/organograma — árvore completa montada em memória
 async function tree(req, res) {
@@ -39,6 +38,7 @@ async function update(req, res) {
     docNumero,
     docUrl,
     docDescricao,
+    gestorMatricula,
   } = req.body;
 
   if (!nome || !nome.trim()) {
@@ -162,6 +162,9 @@ async function update(req, res) {
             docTipo === 'OUTROS' || docTipo === 'DIARIO_OFICIAL' ? null : docNumero.trim(),
           docUrl: docTipo === 'OUTROS' ? null : docUrl.trim(),
           docDescricao: docTipo === 'OUTROS' ? docDescricao.trim() : null,
+          // opcional: preenchido quando o novo gestor foi escolhido pela
+          // busca de pessoas do RH em vez de digitado à mão
+          matricula: gestorMatricula ? String(gestorMatricula).trim() || null : null,
         },
       });
     }
@@ -230,40 +233,6 @@ async function updateGestorDoc(req, res) {
   res.json(registro);
 }
 
-// PUT /api/organograma/gestores/:histId/matricula — liga (ou desliga) esse
-// gestor a uma pessoa do banco de RH externo, somente leitura (ADMIN).
-// Não interfere na troca de gestor nem na documentação — é só um vínculo
-// extra pra abrir "mais informações" a partir do histórico.
-async function vincularGestorMatricula(req, res) {
-  const histId = Number(req.params.histId);
-  const matricula = String(req.body.matricula || '').trim();
-
-  const existe = await prisma.gestorHistory.findUnique({ where: { id: histId } });
-  if (!existe) {
-    return res.status(404).json({ error: 'Registro de gestor não encontrado.' });
-  }
-
-  if (!matricula) {
-    const registro = await prisma.gestorHistory.update({
-      where: { id: histId },
-      data: { matricula: null },
-    });
-    return res.json(registro);
-  }
-
-  const pessoa = await buscarPessoaPorMatricula(matricula);
-  if (!pessoa) {
-    return res.status(404).json({ error: 'Pessoa não encontrada no banco de RH.' });
-  }
-
-  const registro = await prisma.gestorHistory.update({
-    where: { id: histId },
-    data: { matricula },
-  });
-
-  res.json(registro);
-}
-
 // POST /api/organograma — cria uma nova unidade (somente ADMIN)
 async function create(req, res) {
   const { nome, sigla, gestor, parentId, fotoVisivel } = req.body;
@@ -316,12 +285,4 @@ async function remove(req, res) {
   res.json({ removidas: antes - depois });
 }
 
-module.exports = {
-  tree,
-  update,
-  create,
-  remove,
-  gestores,
-  updateGestorDoc,
-  vincularGestorMatricula,
-};
+module.exports = { tree, update, create, remove, gestores, updateGestorDoc };

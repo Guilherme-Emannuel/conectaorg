@@ -218,11 +218,21 @@ function opcoesSetores(excluir, selecionadoId) {
   return opcoes.join('');
 }
 
-function abrirModalEdicao(id) {
+function abrirModalEdicao(id, overrides) {
   const node = porId.get(id);
   if (!node || !isAdmin) return;
 
-  fotoEditada = undefined;
+  // overrides preserva o que a pessoa já tinha digitado/escolhido quando
+  // este modal é reaberto depois de usar o "Editar Gestor" (a busca de
+  // pessoas usa a mesma janelinha, então o formulário precisa ser refeito)
+  const valores = {
+    nome: overrides?.nome ?? node.nome,
+    sigla: overrides?.sigla ?? (node.sigla || ''),
+    gestor: overrides?.gestor ?? (node.gestor || ''),
+    gestorMatricula: overrides?.gestorMatricula ?? null,
+    fotoVisivel: overrides?.fotoVisivel ?? node.fotoVisivel,
+  };
+  fotoEditada = overrides && 'foto' in overrides ? overrides.foto : undefined;
 
   overlay.innerHTML = `
     <div class="modal">
@@ -230,15 +240,18 @@ function abrirModalEdicao(id) {
 
       <div class="field">
         <label for="edit-nome">Nome do setor</label>
-        <input id="edit-nome" value="${esc(node.nome)}">
+        <input id="edit-nome" value="${esc(valores.nome)}">
       </div>
       <div class="field">
         <label for="edit-sigla">Sigla</label>
-        <input id="edit-sigla" value="${esc(node.sigla || '')}">
+        <input id="edit-sigla" value="${esc(valores.sigla)}">
       </div>
       <div class="field">
-        <label for="edit-gestor">Nome do gestor</label>
-        <input id="edit-gestor" value="${esc(node.gestor || '')}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <label for="edit-gestor" style="margin:0">Nome do gestor</label>
+          <button type="button" class="btn-sm" id="edit-gestor-buscar">🔍 Editar Gestor</button>
+        </div>
+        <input id="edit-gestor" value="${esc(valores.gestor)}">
       </div>
 
       ${
@@ -253,7 +266,7 @@ function abrirModalEdicao(id) {
       <div class="switch-row">
         <span>Exibir foto do gestor (bolinha no card)</span>
         <label class="switch">
-          <input type="checkbox" id="edit-foto-visivel" ${node.fotoVisivel ? 'checked' : ''}>
+          <input type="checkbox" id="edit-foto-visivel" ${valores.fotoVisivel ? 'checked' : ''}>
           <span class="slider"></span>
         </label>
       </div>
@@ -298,6 +311,25 @@ function abrirModalEdicao(id) {
   document.getElementById('edit-gestor').addEventListener('input', atualizarPreview);
   document.getElementById('edit-foto-btn').onclick = () =>
     document.getElementById('edit-foto').click();
+
+  // "Editar Gestor": escolhe alguém do RH pra preencher o nome do gestor,
+  // em vez de digitar. Guarda o estado atual do formulário pra não perder
+  // nada enquanto a busca (que usa a mesma janelinha) fica aberta.
+  document.getElementById('edit-gestor-buscar').onclick = () => {
+    const estadoAtual = {
+      nome: document.getElementById('edit-nome').value,
+      sigla: document.getElementById('edit-sigla').value,
+      gestor: document.getElementById('edit-gestor').value,
+      gestorMatricula: valores.gestorMatricula,
+      fotoVisivel: document.getElementById('edit-foto-visivel').checked,
+      foto: fotoEditada,
+    };
+    abrirBuscarPessoaParaGestor(
+      (matricula, nomeEscolhido) =>
+        abrirModalEdicao(id, { ...estadoAtual, gestor: nomeEscolhido, gestorMatricula: matricula }),
+      () => abrirModalEdicao(id, estadoAtual)
+    );
+  };
 
   // redimensiona a imagem para 128px antes de salvar (fica leve no banco)
   document.getElementById('edit-foto').addEventListener('change', (event) => {
@@ -392,6 +424,11 @@ function abrirModalEdicao(id) {
       fotoVisivel: document.getElementById('edit-foto-visivel').checked,
     };
     if (fotoEditada !== undefined) payload.foto = fotoEditada;
+    // só manda a matrícula se o nome não foi mexido depois de escolhido
+    // pela busca — evita ligar o vínculo a um nome que já mudou
+    if (valores.gestorMatricula && gestorNovoValor === valores.gestor) {
+      payload.gestorMatricula = valores.gestorMatricula;
+    }
 
     const seletorPai = document.getElementById('edit-parent');
     if (seletorPai) payload.parentId = Number(seletorPai.value);
@@ -773,48 +810,39 @@ async function abrirMaisInformacoesGestor(matricula) {
   overlay.classList.add('open');
 }
 
-// confirmação antes de gravar o vínculo do gestor
-function confirmarVincularGestor(histId, matricula, nome, aoVincular) {
+// confirmação antes de definir a pessoa escolhida como gestor
+function confirmarEscolhaGestor(matricula, nome, aoEscolher, aoCancelar) {
   overlay.innerHTML = `
     <div class="modal" style="max-width:380px">
-      <h3>Confirmar vínculo</h3>
-      <p class="muted">Tem certeza que deseja vincular <strong>${esc(nome)}</strong> a este gestor?</p>
+      <h3>Confirmar gestor</h3>
+      <p class="muted">Tem certeza que deseja definir <strong>${esc(nome)}</strong> como gestor?</p>
       <div class="actions">
         <button type="button" class="btn-secondary" id="conf-nao">Cancelar</button>
-        <button type="button" class="btn-primary" id="conf-sim">Sim, vincular</button>
+        <button type="button" class="btn-primary" id="conf-sim">Sim, definir</button>
       </div>
     </div>`;
 
-  document.getElementById('conf-nao').onclick = () => abrirBuscarPessoaGestor(histId, aoVincular);
-  document.getElementById('conf-sim').onclick = async () => {
-    const resp = await apiFetch(`/api/organograma/gestores/${histId}/matricula`, {
-      method: 'PUT',
-      body: JSON.stringify({ matricula }),
-    });
-    if (!resp || !resp.ok) {
-      alert(resp ? (await resp.json()).error : 'Erro ao vincular pessoa.');
-      return;
-    }
-    fecharModal();
-    mostrarToast('Gestor vinculado com sucesso');
-    if (aoVincular) aoVincular();
-  };
+  document.getElementById('conf-nao').onclick = () => abrirBuscarPessoaParaGestor(aoEscolher, aoCancelar);
+  document.getElementById('conf-sim').onclick = () => aoEscolher(matricula, nome);
   overlay.classList.add('open');
 }
 
-// busca de pessoas no RH (somente leitura) pra escolher quem vincular ao gestor
+// busca de pessoas no RH (somente leitura) pra escolher o novo gestor.
+// aoEscolher(matricula, nome) roda depois da confirmação; aoCancelar()
+// roda se a pessoa fechar a busca sem escolher ninguém — nada é gravado
+// aqui, quem decide o que fazer com a escolha é quem chamou esta função.
 let buscaPessoaGestorTimer = null;
-async function abrirBuscarPessoaGestor(histId, aoVincular) {
+function abrirBuscarPessoaParaGestor(aoEscolher, aoCancelar) {
   overlay.innerHTML = `
     <div class="modal" style="max-width:520px">
-      <h3>Vincular pessoa ao gestor</h3>
+      <h3>Escolher gestor</h3>
       <input type="search" id="rp-filtro" class="search-input" placeholder="Buscar por nome ou CPF..." style="width:100%;margin-bottom:12px">
       <div class="hist-lista" id="rp-lista" style="max-height:320px"></div>
       <div class="actions">
-        <button type="button" class="btn-secondary" id="rp-fechar">Fechar</button>
+        <button type="button" class="btn-secondary" id="rp-fechar">Cancelar</button>
       </div>
     </div>`;
-  document.getElementById('rp-fechar').onclick = fecharModal;
+  document.getElementById('rp-fechar').onclick = () => (aoCancelar ? aoCancelar() : fecharModal());
   overlay.classList.add('open');
 
   const listaEl = document.getElementById('rp-lista');
@@ -848,7 +876,7 @@ async function abrirBuscarPessoaGestor(histId, aoVincular) {
 
     listaEl.querySelectorAll('[data-matricula]').forEach((item) => {
       item.onclick = () =>
-        confirmarVincularGestor(histId, item.dataset.matricula, item.dataset.nome, aoVincular);
+        confirmarEscolhaGestor(item.dataset.matricula, item.dataset.nome, aoEscolher, aoCancelar);
     });
   }
 
@@ -897,14 +925,13 @@ async function abrirModalHistorico(id) {
         ${g.atual ? '<span class="badge-atual">Gestor Atual</span>' : ''}
       </div>
       <div class="hist-data">Adicionado como gestor em ${new Date(g.inicio).toLocaleDateString('pt-BR')}</div>
-      <div class="hist-pessoa">
-        ${
-          g.matricula
-            ? `<button class="btn-sm" data-verpessoa="${g.id}" data-matricula="${esc(g.matricula)}">ℹ️ Mais informações</button>
-               <button class="btn-sm" data-vincularpessoa="${g.id}">🔗 Trocar vínculo</button>`
-            : `<button class="btn-sm" data-vincularpessoa="${g.id}">🔗 Vincular pessoa do RH</button>`
-        }
-      </div>
+      ${
+        g.matricula
+          ? `<div class="hist-pessoa">
+               <button class="btn-sm" data-verpessoa="${g.id}" data-matricula="${esc(g.matricula)}">ℹ️ Mais informações</button>
+             </div>`
+          : ''
+      }
       <div class="hist-doc">
         ${
           g.docUrl
@@ -976,13 +1003,9 @@ async function abrirModalHistorico(id) {
     };
   });
 
-  // vincular/trocar/ver a pessoa do RH ligada a este gestor
+  // ver os dados da pessoa do RH ligada a este gestor (quando houver)
   overlay.querySelectorAll('[data-verpessoa]').forEach((btn) => {
     btn.onclick = () => abrirMaisInformacoesGestor(btn.dataset.matricula);
-  });
-  overlay.querySelectorAll('[data-vincularpessoa]').forEach((btn) => {
-    btn.onclick = () =>
-      abrirBuscarPessoaGestor(Number(btn.dataset.vincularpessoa), () => abrirModalHistorico(id));
   });
 
   // alterna entre os campos padrão (número/URL), Diário Oficial (só URL)
