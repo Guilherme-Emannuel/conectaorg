@@ -58,6 +58,9 @@ model GestorHistory {
   docNumero    String?
   docUrl       String?  @db.Text
   docDescricao String?  @db.Text // usado quando docTipo = 'OUTROS': como a troca foi solicitada
+  // liga esse gestor a uma pessoa no banco de RH externo (somente leitura),
+  // pra abrir "mais informações" — opcional, não interfere na troca de gestor
+  matricula    String?
 
   @@map("gestor_history")
 }
