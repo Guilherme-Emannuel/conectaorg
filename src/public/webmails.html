@@ -186,18 +186,19 @@
         ? `<button class="tel-link" data-ver-responsavel="${esc(conta.username)}"><strong>${esc(conta.responsavel.nome)}</strong></button>`
         : `<button class="btn-sm" data-vincular-responsavel="${esc(conta.username)}">➕ Vincular</button>`;
 
+      // cabeçalho (e-mail + responsável) sempre no mesmo lugar, separado
+      // do resumo — assim um nome longo nunca empurra o responsável pra
+      // outra posição, em cartão nenhum
       return `<div class="pessoa-card${ativo ? ' card-ativo' : ' card-inativo'}">
         <div class="pessoa-card-topo">
-          <div class="pessoa-identidade">
-            <div class="pessoa-nome">
-              ${esc(conta.username)}
-              ${badge}
-            </div>
-            <div class="pessoa-resumo">
-              ${tileHtml('Nome', conta.name ? `<strong>${esc(conta.name)}</strong>` : '<span class="muted">Sem nome cadastrado</span>')}
-            </div>
+          <div class="pessoa-nome">
+            ${esc(conta.username)}
+            ${badge}
           </div>
           <div class="pessoa-acoes">${tileHtml('Responsável', responsavelHtml)}</div>
+        </div>
+        <div class="pessoa-resumo">
+          ${tileHtml('Nome', conta.name ? `<strong>${esc(conta.name)}</strong>` : '<span class="muted">Sem nome cadastrado</span>')}
         </div>
         <div class="pessoa-card-detalhes">
           ${tileHtml('Último acesso', `<strong>${esc(formatarData(conta.last_login_date))}</strong>`)}

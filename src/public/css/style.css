@@ -893,19 +893,20 @@ button.nav-item {
   border-left-color: var(--danger);
 }
 
+/* Cabeçalho do cartão: nome à esquerda, ações sempre fixas à direita.
+   O resumo (cargo/setor, nome do webmail...) fica FORA daqui, numa
+   linha própria — assim um valor longo nunca empurra as ações pra
+   outro lugar, e todo cartão mantém a mesma estrutura. */
 .pessoa-card-topo {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.pessoa-identidade {
-  min-width: 0;
 }
 
 .pessoa-nome {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
@@ -923,10 +924,17 @@ button.nav-item {
 
 .pessoa-acoes {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pessoa-acoes-botoes {
+  display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  align-items: center;
-  flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 /* ---- "tile": rótulo pequeno em cima, valor embaixo — usado no resumo ---- */
@@ -973,7 +981,7 @@ button.nav-item {
   display: flex;
   flex-wrap: wrap;
   gap: 6px var(--space-3);
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 
 .pessoa-resumo .tile {

@@ -215,7 +215,7 @@
           ? `<button class="btn-sm" data-acao-historico="${esc(cpf)}" data-rotulo-base="🕘 Histórico (${outros})">🕘 Histórico (${outros})</button>`
           : '';
 
-      return `<div class="pessoa-acoes">${botaoTel}${botaoHist}</div>`;
+      return botaoTel + botaoHist;
     }
 
     function statusBadgeHtml(linha, cat) {
@@ -230,19 +230,23 @@
       const nomeTxt = cat.nome ? linha[cat.nome] : '(sem nome)';
       const matriculaTxt = cat.matricula ? linha[cat.matricula] : '';
       const statusClasse = cat.demissao ? (linha[cat.demissao] ? ' card-inativo' : ' card-ativo') : '';
+      const botoes = botoesAcaoHtml(linha, cat);
 
+      // cabeçalho (nome + matrícula + ações) sempre no mesmo lugar,
+      // separado do resumo — assim um cargo/setor longo nunca empurra
+      // as ações pra outra posição, em cartão nenhum
       return `<div class="pessoa-card${statusClasse}">
         <div class="pessoa-card-topo">
-          <div class="pessoa-identidade">
-            <div class="pessoa-nome">
-              ${esc(nomeTxt)}
-              ${matriculaTxt ? `<span class="pessoa-matricula">Matrícula #${esc(matriculaTxt)}</span>` : ''}
-              ${statusBadgeHtml(linha, cat)}
-            </div>
-            <div class="pessoa-resumo">${resumoDaPessoa(linha, cat)}</div>
+          <div class="pessoa-nome">
+            ${esc(nomeTxt)}
+            ${statusBadgeHtml(linha, cat)}
           </div>
-          ${botoesAcaoHtml(linha, cat)}
+          <div class="pessoa-acoes">
+            ${matriculaTxt ? `<span class="pessoa-matricula">Matrícula #${esc(matriculaTxt)}</span>` : ''}
+            ${botoes ? `<div class="pessoa-acoes-botoes">${botoes}</div>` : ''}
+          </div>
         </div>
+        <div class="pessoa-resumo">${resumoDaPessoa(linha, cat)}</div>
         <div class="pessoa-card-detalhes">${chipsDaPessoa(linha, cat, rotulos)}</div>
       </div>`;
     }
