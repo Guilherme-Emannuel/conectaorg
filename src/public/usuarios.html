@@ -257,13 +257,13 @@
       if (temPeriodo) tiles.push(tileHtml('Período', `${esc(inicio)} – ${esc(fim)}`));
 
       const cargoTxt = cat.cargos.map((c) => linha[c]).filter(Boolean).join(' · ');
-      if (cargoTxt) tiles.push(tileHtml('Cargo', esc(cargoTxt)));
+      if (cargoTxt) tiles.push(tileHtml('Cargo', esc(cargoTxt), 'tile-crescer'));
 
       const setorTxt = [cat.divisao, cat.subdivisao]
         .filter((c) => c && linha[c])
         .map((c) => linha[c])
         .join(' › ');
-      if (setorTxt) tiles.push(tileHtml('Setor', esc(setorTxt)));
+      if (setorTxt) tiles.push(tileHtml('Setor', esc(setorTxt), 'tile-crescer'));
 
       if (!cargoTxt && !setorTxt) {
         tiles.push('<p class="muted" style="margin:0">Sem cargo/setor informado.</p>');
