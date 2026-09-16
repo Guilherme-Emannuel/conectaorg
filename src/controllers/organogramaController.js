@@ -168,6 +168,27 @@ async function update(req, res) {
         },
       });
     }
+  } else if (gestorMatricula && gestorValido(gestorNovo)) {
+    // o gestor não mudou (a pessoa só foi escolhida de novo na busca do RH,
+    // pra ligar o cadastro) — não é troca, então não exige documentação.
+    // Sem histórico ainda pra este setor, cria o registro do gestor atual
+    // já com o vínculo, em vez de silenciosamente não salvar nada.
+    const matriculaLimpa = String(gestorMatricula).trim() || null;
+    const atualizado = await prisma.gestorHistory.updateMany({
+      where: { orgUnitId: id, atual: true },
+      data: { matricula: matriculaLimpa },
+    });
+    if (atualizado.count === 0) {
+      await prisma.gestorHistory.create({
+        data: {
+          orgUnitId: id,
+          nome: gestorNovo,
+          atual: true,
+          inicio: existe.createdAt,
+          matricula: matriculaLimpa,
+        },
+      });
+    }
   }
 
   res.json(unidade);

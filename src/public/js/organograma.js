@@ -10,6 +10,29 @@ const canvas = document.getElementById('org-canvas');
 
 const SEM_GESTOR = ['VACANTE', 'NÃO INFORMADO', 'NÃO ADICIONADO'];
 
+// mesma padronização de nome usada no servidor (src/lib/nomes.js) — sem
+// isso, um nome vindo do RH em CAIXA ALTA nunca bateria com o mesmo
+// gestor já salvo (em Título), e pareceria sempre uma troca de verdade
+function gestorValidoCliente(nome) {
+  return Boolean(nome && nome.trim() && !SEM_GESTOR.includes(nome.trim().toUpperCase()));
+}
+
+const CONECTIVOS_NOME = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+
+function padronizarNomeGestor(nome) {
+  const bruto = (nome || '').trim();
+  if (!bruto || !gestorValidoCliente(bruto)) return bruto;
+
+  return bruto
+    .split(/\s+/)
+    .map((palavra, indice) => {
+      const minuscula = palavra.toLocaleLowerCase('pt-BR');
+      if (indice > 0 && CONECTIVOS_NOME.has(minuscula)) return minuscula;
+      return minuscula.charAt(0).toLocaleUpperCase('pt-BR') + minuscula.slice(1);
+    })
+    .join(' ');
+}
+
 const usuarioLogado = (() => {
   try {
     return JSON.parse(localStorage.getItem('user')) || {};
@@ -249,7 +272,7 @@ function abrirModalEdicao(id, overrides) {
       <div class="field">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
           <label for="edit-gestor" style="margin:0">Nome do gestor</label>
-          <button type="button" class="btn-sm" id="edit-gestor-buscar">🔍 Editar Gestor</button>
+          <button type="button" class="btn-link-acao" id="edit-gestor-buscar">🔍 Editar Gestor</button>
         </div>
         <input id="edit-gestor" value="${esc(valores.gestor)}">
       </div>
@@ -811,7 +834,12 @@ async function abrirMaisInformacoesGestor(matricula) {
 }
 
 // confirmação antes de definir a pessoa escolhida como gestor
-function confirmarEscolhaGestor(matricula, nome, aoEscolher, aoCancelar) {
+function confirmarEscolhaGestor(matricula, nomeBruto, aoEscolher, aoCancelar) {
+  // padroniza já aqui: o RH devolve o nome em CAIXA ALTA, mas o gestor
+  // já salvo está em Título — sem igualar o formato, escolher a MESMA
+  // pessoa que já é gestora pareceria uma troca de verdade
+  const nome = padronizarNomeGestor(nomeBruto);
+
   overlay.innerHTML = `
     <div class="modal" style="max-width:380px">
       <h3>Confirmar gestor</h3>
