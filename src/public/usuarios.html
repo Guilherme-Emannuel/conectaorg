@@ -234,7 +234,12 @@
 
       // cabeçalho (nome + matrícula) sempre no mesmo lugar, separado do
       // resumo — assim um cargo/setor longo nunca empurra nada pra outra
-      // posição. As ações ficam num rodapé próprio, canto inferior esquerdo.
+      // posição. As ações ficam na mesma linha do CPF/Webmail/Admissão,
+      // empurradas pro canto direito dela.
+      const acoesTile = botoes
+        ? `<div class="tile pessoa-tile-acoes"><span class="tile-rotulo">Ações</span><div class="pessoa-rodape-botoes">${botoes}</div></div>`
+        : '';
+
       return `<div class="pessoa-card${statusClasse}">
         <div class="pessoa-card-topo">
           <div class="pessoa-nome">
@@ -244,8 +249,7 @@
           ${matriculaTxt ? `<div class="pessoa-acoes"><span class="pessoa-matricula">Matrícula #${esc(matriculaTxt)}</span></div>` : ''}
         </div>
         <div class="pessoa-resumo">${resumoDaPessoa(linha, cat)}</div>
-        <div class="pessoa-card-detalhes">${chipsDaPessoa(linha, cat, rotulos)}</div>
-        ${botoes ? `<div class="pessoa-rodape"><span class="pessoa-rodape-rotulo">Ações</span><div class="pessoa-rodape-botoes">${botoes}</div></div>` : ''}
+        <div class="pessoa-card-detalhes">${chipsDaPessoa(linha, cat, rotulos)}${acoesTile}</div>
       </div>`;
     }
 
