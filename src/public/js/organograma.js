@@ -54,6 +54,14 @@ function historyBtnHtml(id) {
     : '';
 }
 
+// atalho: busca automaticamente no RH pelo nome que já está cadastrado
+// como gestor, confirma e liga — sem precisar copiar/colar nada
+function vincularBtnHtml(node) {
+  return isAdmin && gestorValidoCliente(node.gestor)
+    ? `<button class="btn-vincular" data-vincular="${node.id}" title="Vincular este gestor ao RH automaticamente">🔗</button>`
+    : '';
+}
+
 function esc(text) {
   const div = document.createElement('div');
   div.textContent = text ?? '';
@@ -95,6 +103,7 @@ function cardHtml(node) {
     <div class="org-card${node.fotoVisivel ? ' has-avatar' : ''}${destaque}" data-card="${node.id}">
       ${historyBtnHtml(node.id)}
       ${editBtnHtml(node.id)}
+      ${vincularBtnHtml(node)}
       ${avatarHtml(node, 'org-avatar')}
       <div class="setor">${esc(node.nome)}</div>
       ${node.sigla ? `<span class="sigla">${esc(node.sigla)}</span>` : ''}
@@ -142,6 +151,7 @@ function listNodeHtml(node) {
         </div>
         ${historyBtnHtml(node.id)}
         ${editBtnHtml(node.id)}
+        ${vincularBtnHtml(node)}
       </summary>
       ${temFilhos ? node.children.map(listNodeHtml).join('') : ''}
     </details>`;
@@ -213,6 +223,11 @@ canvas.addEventListener('click', (event) => {
   const edit = event.target.closest('[data-edit]');
   if (edit) {
     abrirModalEdicao(Number(edit.dataset.edit));
+    return;
+  }
+  const vincular = event.target.closest('[data-vincular]');
+  if (vincular) {
+    vincularGestorAutomatico(Number(vincular.dataset.vincular));
     return;
   }
   const toggle = event.target.closest('[data-toggle]');
@@ -350,7 +365,8 @@ function abrirModalEdicao(id, overrides) {
     abrirBuscarPessoaParaGestor(
       (matricula, nomeEscolhido) =>
         abrirModalEdicao(id, { ...estadoAtual, gestor: nomeEscolhido, gestorMatricula: matricula }),
-      () => abrirModalEdicao(id, estadoAtual)
+      () => abrirModalEdicao(id, estadoAtual),
+      estadoAtual.gestor // já busca pelo nome que está no campo — sem copiar/colar
     );
   };
 
@@ -637,6 +653,13 @@ listContainer.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
     abrirModalEdicao(Number(edit.dataset.edit));
+    return;
+  }
+  const vincular = event.target.closest('[data-vincular]');
+  if (vincular) {
+    event.preventDefault();
+    event.stopPropagation();
+    vincularGestorAutomatico(Number(vincular.dataset.vincular));
   }
 });
 
@@ -855,16 +878,59 @@ function confirmarEscolhaGestor(matricula, nomeBruto, aoEscolher, aoCancelar) {
   overlay.classList.add('open');
 }
 
+// atalho do ícone 🔗: busca automaticamente pelo nome que já está
+// cadastrado como gestor, confirma e já salva — sem precisar copiar o
+// nome, colar na busca, escolher e ainda abrir "Editar setor" pra salvar.
+async function vincularGestorAutomatico(id) {
+  const node = porId.get(id);
+  if (!node || !isAdmin || !gestorValidoCliente(node.gestor)) return;
+
+  const params = new URLSearchParams({ q: node.gestor, page: 1 });
+  const res = await apiFetch(`/api/external-users/buscar-pessoas?${params}`);
+  if (!res || !res.ok) {
+    alert('Erro ao buscar a pessoa no RH.');
+    return;
+  }
+  const dados = await res.json();
+  const nomePadrao = padronizarNomeGestor(node.gestor);
+  const iguais = dados.rows.filter((p) => padronizarNomeGestor(p.nome) === nomePadrao);
+
+  const salvarVinculo = (matricula, nome) => {
+    fecharModal();
+    salvarEdicao(id, node, {
+      nome: node.nome,
+      sigla: node.sigla || '',
+      gestor: nome,
+      fotoVisivel: node.fotoVisivel,
+      gestorMatricula: matricula,
+    });
+  };
+
+  if (iguais.length === 1) {
+    confirmarEscolhaGestor(iguais[0].matricula, iguais[0].nome, salvarVinculo, fecharModal);
+    return;
+  }
+
+  if (dados.rows.length === 0) {
+    alert(`Nenhuma pessoa chamada "${node.gestor}" foi encontrada no RH.`);
+    return;
+  }
+
+  // mais de uma pessoa com esse nome, ou nenhuma bateu exatamente — abre
+  // a busca já preenchida, pra escolher manualmente entre os parecidos
+  abrirBuscarPessoaParaGestor(salvarVinculo, fecharModal, node.gestor);
+}
+
 // busca de pessoas no RH (somente leitura) pra escolher o novo gestor.
 // aoEscolher(matricula, nome) roda depois da confirmação; aoCancelar()
 // roda se a pessoa fechar a busca sem escolher ninguém — nada é gravado
 // aqui, quem decide o que fazer com a escolha é quem chamou esta função.
 let buscaPessoaGestorTimer = null;
-function abrirBuscarPessoaParaGestor(aoEscolher, aoCancelar) {
+function abrirBuscarPessoaParaGestor(aoEscolher, aoCancelar, queryInicial = '') {
   overlay.innerHTML = `
     <div class="modal" style="max-width:520px">
       <h3>Escolher gestor</h3>
-      <input type="search" id="rp-filtro" class="search-input" placeholder="Buscar por nome ou CPF..." style="width:100%;margin-bottom:12px">
+      <input type="search" id="rp-filtro" class="search-input" placeholder="Buscar por nome ou CPF..." style="width:100%;margin-bottom:12px" value="${esc(queryInicial)}">
       <div class="hist-lista" id="rp-lista" style="max-height:320px"></div>
       <div class="actions">
         <button type="button" class="btn-secondary" id="rp-fechar">Cancelar</button>
@@ -913,7 +979,7 @@ function abrirBuscarPessoaParaGestor(aoEscolher, aoCancelar) {
     buscaPessoaGestorTimer = setTimeout(() => buscar(e.target.value.trim()), 350);
   });
 
-  buscar('');
+  buscar(queryInicial);
 }
 
 // ---------- Modal de histórico de gestores (somente ADMIN) ----------

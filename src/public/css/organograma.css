@@ -312,7 +312,8 @@
 
 /* botões de ação — circulares, aparecem no hover do card */
 .org-card .btn-edit,
-.org-card .btn-history {
+.org-card .btn-history,
+.org-card .btn-vincular {
   position: absolute;
   top: 6px;
   width: 26px;
@@ -337,15 +338,22 @@
   left: 6px;
 }
 
+.org-card .btn-vincular {
+  left: 36px;
+}
+
 .org-card:hover .btn-edit,
 .org-card:hover .btn-history,
+.org-card:hover .btn-vincular,
 .org-card:focus-within .btn-edit,
-.org-card:focus-within .btn-history {
+.org-card:focus-within .btn-history,
+.org-card:focus-within .btn-vincular {
   opacity: 1;
 }
 
 .org-card .btn-edit:hover,
-.org-card .btn-history:hover {
+.org-card .btn-history:hover,
+.org-card .btn-vincular:hover {
   background: var(--primary-50);
   border-color: var(--primary-300);
 }
@@ -449,7 +457,8 @@
 }
 
 .org-list summary .btn-edit,
-.org-list summary .btn-history {
+.org-list summary .btn-history,
+.org-list summary .btn-vincular {
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -465,7 +474,8 @@
 }
 
 .org-list summary .btn-edit:hover,
-.org-list summary .btn-history:hover {
+.org-list summary .btn-history:hover,
+.org-list summary .btn-vincular:hover {
   opacity: 1;
   background: var(--primary-50);
   border-color: var(--primary-300);
