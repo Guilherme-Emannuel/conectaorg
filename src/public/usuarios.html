@@ -24,6 +24,17 @@
           <p class="muted" id="aviso-texto"></p>
         </div>
 
+        <div class="stats-grid" id="us-stats-grid" style="display:none">
+          <button type="button" class="card stat-filtro" data-status="ativo">
+            <p class="muted">Ativos</p>
+            <div class="stat-value" id="us-ativos">—</div>
+          </button>
+          <button type="button" class="card stat-filtro" data-status="exonerado">
+            <p class="muted">Exonerados</p>
+            <div class="stat-value" id="us-exonerados">—</div>
+          </button>
+        </div>
+
         <div class="card" id="dados-card" style="display:none">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
             <input type="search" id="filtro" class="search-input"
@@ -285,6 +296,7 @@
     let paginaAtual = 1;
     let termoBusca = '';
     let totalPaginas = 1;
+    let filtroStatus = ''; // '' | 'ativo' | 'exonerado'
 
     // categorização + rótulos da última renderização — reaproveitados
     // pra montar o histórico com o mesmo critério dos cartões
@@ -303,8 +315,9 @@
         dados.rows.map((linha) => pessoaCardHtml(linha, cat, rotulos)).join('') ||
         '<p class="muted">Nenhum resultado.</p>';
 
+      const rotuloStatus = filtroStatus === 'ativo' ? ' (ativos)' : filtroStatus === 'exonerado' ? ' (exonerados)' : '';
       document.getElementById('contagem').textContent =
-        `${dados.total.toLocaleString('pt-BR')} registro(s)` +
+        `${dados.total.toLocaleString('pt-BR')} registro(s)${rotuloStatus}` +
         (termoBusca ? ` para "${termoBusca}"` : '');
 
       totalPaginas = dados.totalPages;
@@ -317,6 +330,7 @@
     async function carregar() {
       const params = new URLSearchParams({ page: paginaAtual });
       if (termoBusca) params.set('q', termoBusca);
+      if (filtroStatus) params.set('status', filtroStatus);
 
       const res = await apiFetch(`/api/external-users?${params}`);
       if (!res) return;
@@ -343,6 +357,34 @@
         paginaAtual = 1;
         carregar();
       }, 350);
+    });
+
+    // cards grandes de filtro (Ativos / Exonerados) — mesmo padrão da tela
+    // de Webmails. Clicar de novo no que já está ativo volta a mostrar todos.
+    async function carregarStats() {
+      const res = await apiFetch('/api/external-users/stats');
+      if (!res || !res.ok) return;
+      const dados = await res.json();
+      const grid = document.getElementById('us-stats-grid');
+      if (dados.total === null) {
+        grid.style.display = 'none';
+        return;
+      }
+      grid.style.display = 'grid';
+      document.getElementById('us-ativos').textContent = dados.ativos.toLocaleString('pt-BR');
+      document.getElementById('us-exonerados').textContent = dados.exonerados.toLocaleString('pt-BR');
+    }
+
+    document.querySelectorAll('#us-stats-grid .stat-filtro[data-status]').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        const novoStatus = botao.dataset.status;
+        filtroStatus = filtroStatus === novoStatus ? '' : novoStatus;
+        document.querySelectorAll('#us-stats-grid .stat-filtro[data-status]').forEach((b) => {
+          b.classList.toggle('active', b.dataset.status === filtroStatus);
+        });
+        paginaAtual = 1;
+        carregar();
+      });
     });
 
     // ---- abrir conversa no WhatsApp (Web ou aplicativo do PC) ----
@@ -516,6 +558,7 @@
       }
     });
 
+    carregarStats();
     carregar();
   </script>
 </body>
