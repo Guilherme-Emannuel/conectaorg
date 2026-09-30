@@ -143,20 +143,23 @@
     }
 
     // barra de uso: verde quando sobra espaço, vermelho quando está cheio.
-    // O tooltip (passar o mouse) mostra o total usado e o limite exatos.
+    // O tooltip (passar o mouse em qualquer lugar do quadrado) mostra o
+    // total usado e o limite exatos — por isso o título vai no quadrado
+    // inteiro (tileHtml), não só na barrinha fina.
     function barraArmazenamentoHtml(usado, limite) {
       const usadoTxt = formatarBytes(usado);
       if (!limite) {
-        return `<strong>${esc(usadoTxt)}</strong> <span class="muted">(sem limite)</span>`;
+        return { html: `<strong>${esc(usadoTxt)}</strong> <span class="muted">(sem limite)</span>`, titulo: '' };
       }
       const limiteTxt = formatarBytes(limite);
       const pct = Math.max(0, Math.min(100, (Number(usado) / Number(limite)) * 100));
       const matiz = Math.round(120 - (120 * pct) / 100); // 120° = verde, 0° = vermelho
       const titulo = `${usadoTxt} usados de ${limiteTxt} (${pct.toFixed(1)}%)`;
-      return `
-        <div class="barra-armazenamento" title="${esc(titulo)}">
+      const html = `
+        <div class="barra-armazenamento">
           <div class="barra-armazenamento-preenchida" style="width:${pct.toFixed(1)}%;background:hsl(${matiz}, 65%, 45%)"></div>
         </div>`;
+      return { html, titulo };
     }
 
     async function carregarStats() {
@@ -201,8 +204,9 @@
 
     // bloco pequeno "rótulo em cima, valor embaixo" — mesmo padrão usado
     // na tela Usuários, pra nunca precisar adivinhar o que cada valor é
-    function tileHtml(rotulo, valorHtml, extraClasse) {
-      return `<div class="tile${extraClasse ? ' ' + extraClasse : ''}"><span class="tile-rotulo">${esc(rotulo)}</span><span class="tile-valor">${valorHtml}</span></div>`;
+    function tileHtml(rotulo, valorHtml, extraClasse, titulo) {
+      const tituloAttr = titulo ? ` title="${esc(titulo)}"` : '';
+      return `<div class="tile${extraClasse ? ' ' + extraClasse : ''}"${tituloAttr}><span class="tile-rotulo">${esc(rotulo)}</span><span class="tile-valor">${valorHtml}</span></div>`;
     }
 
     function contaCardHtml(conta) {
@@ -230,7 +234,10 @@
         </div>
         <div class="pessoa-card-detalhes">
           ${tileHtml('Último acesso', `<strong>${esc(formatarData(conta.last_login_date))}</strong>`)}
-          ${tileHtml('Armazenamento', barraArmazenamentoHtml(conta.quota_usado, conta.quota_limite))}
+          ${(() => {
+            const armazenamento = barraArmazenamentoHtml(conta.quota_usado, conta.quota_limite);
+            return tileHtml('Armazenamento', armazenamento.html, '', armazenamento.titulo);
+          })()}
           ${tileHtml('Criado em', esc(formatarData(conta.created)))}
           ${tileHtml('Alterado em', esc(formatarData(conta.modified)))}
         </div>
