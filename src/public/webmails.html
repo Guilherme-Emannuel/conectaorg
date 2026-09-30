@@ -25,7 +25,7 @@
         </div>
 
         <div class="stats-grid">
-          <button type="button" class="card stat-filtro" data-status="">
+          <button type="button" class="card stat-filtro active" data-status="">
             <p class="muted">Webmails cadastrados</p>
             <div class="stat-value" id="wm-total">—</div>
           </button>
@@ -50,7 +50,7 @@
             <div class="stat-value" id="wm-setoriais">—</div>
           </button>
 
-          <div class="card stat-filtro stat-filtro-periodo active" id="wm-card-nunca-acessado"
+          <div class="card stat-filtro stat-filtro-periodo" id="wm-card-nunca-acessado"
                data-extra="nuncaAcessado" tabindex="0" role="button">
             <div class="stat-filtro-topo">
               <p class="muted" id="wm-nunca-label">Nunca acessados</p>
@@ -159,8 +159,9 @@
     // mesmo tempo (ex.: Ativados + Setoriais + Nunca Acessados).
     let filtroStatus = ''; // '' | 'ativo' | 'inativo'
     let filtroSetoriais = false;
-    // "Nunca Acessados" é o padrão sempre que a página carrega
-    let filtroUltimoAcesso = true;
+    // "Webmails cadastrados" (sem filtro de status/acesso) é o padrão
+    // sempre que a página carrega
+    let filtroUltimoAcesso = false;
     let periodoAtivo = false;
     let periodoInicio = '';
     let periodoFim = '';
