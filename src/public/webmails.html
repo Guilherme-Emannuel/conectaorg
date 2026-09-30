@@ -82,6 +82,16 @@
               </div>
             </div>
           </div>
+
+          <button type="button" class="card stat-filtro" data-extra="comResponsavel">
+            <p class="muted">Com responsável</p>
+            <div class="stat-value" id="wm-com-responsavel">—</div>
+          </button>
+
+          <button type="button" class="card stat-filtro" data-extra="semResponsavel">
+            <p class="muted">Sem responsável</p>
+            <div class="stat-value" id="wm-sem-responsavel">—</div>
+          </button>
         </div>
 
         <div class="card" id="dados-card" style="display:none">
@@ -140,6 +150,8 @@
       document.getElementById('wm-ativos').textContent = dados.ativos.toLocaleString('pt-BR');
       document.getElementById('wm-inativos').textContent = dados.inativos.toLocaleString('pt-BR');
       document.getElementById('wm-setoriais').textContent = dados.setoriais.toLocaleString('pt-BR');
+      document.getElementById('wm-com-responsavel').textContent = dados.comResponsavel.toLocaleString('pt-BR');
+      document.getElementById('wm-sem-responsavel').textContent = dados.semResponsavel.toLocaleString('pt-BR');
       // "nunca acessados" só usa o valor fixo enquanto nenhum filtro de
       // período estiver ativo; depois disso, carregar() atualiza esse
       // número com o total real do período escolhido
@@ -159,6 +171,7 @@
     // mesmo tempo (ex.: Ativados + Setoriais + Nunca Acessados).
     let filtroStatus = ''; // '' | 'ativo' | 'inativo'
     let filtroSetoriais = false;
+    let filtroVinculo = ''; // '' | 'com' | 'sem' — Com/Sem responsável (mutuamente exclusivos entre si)
     // "Webmails cadastrados" (sem filtro de status/acesso) é o padrão
     // sempre que a página carrega
     let filtroUltimoAcesso = false;
@@ -220,6 +233,8 @@
       if (filtroStatus === 'ativo') partes.push('ativados');
       else if (filtroStatus === 'inativo') partes.push('desativados');
       if (filtroSetoriais) partes.push('setoriais');
+      if (filtroVinculo === 'com') partes.push('com responsável');
+      else if (filtroVinculo === 'sem') partes.push('sem responsável');
       if (filtroUltimoAcesso) {
         if (periodoAtivo) partes.push('acesso no período');
         else if (maisDeDias) partes.push(`sem acesso há ${maisDeDias}+ dias`);
@@ -251,6 +266,7 @@
       if (termoBusca) params.set('q', termoBusca);
       if (filtroStatus) params.set('status', filtroStatus);
       if (filtroSetoriais) params.set('setoriais', '1');
+      if (filtroVinculo) params.set('vinculoResponsavel', filtroVinculo);
       if (filtroUltimoAcesso) {
         if (periodoAtivo && periodoInicio && periodoFim) {
           params.set('acessoInicio', periodoInicio);
@@ -677,6 +693,24 @@
       paginaAtual = 1;
       carregar();
     });
+
+    // "Com responsável" / "Sem responsável" — mutuamente exclusivos entre
+    // si (não dá pra ter e não ter ao mesmo tempo), mas combinam livremente
+    // com os outros grupos. Clicar no que já está ativo desliga o filtro.
+    document.querySelectorAll('#wm-extra-grid [data-extra="comResponsavel"], #wm-extra-grid [data-extra="semResponsavel"]')
+      .forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const valor = botao.dataset.extra === 'comResponsavel' ? 'com' : 'sem';
+          filtroVinculo = filtroVinculo === valor ? '' : valor;
+          document.querySelectorAll('#wm-extra-grid [data-extra="comResponsavel"], #wm-extra-grid [data-extra="semResponsavel"]')
+            .forEach((b) => {
+              const v = b.dataset.extra === 'comResponsavel' ? 'com' : 'sem';
+              b.classList.toggle('active', filtroVinculo === v);
+            });
+          paginaAtual = 1;
+          carregar();
+        });
+      });
 
     // "Nunca acessados" — também um interruptor independente; clicar no
     // corpo do card liga/desliga. O clique dentro do seletor de período
