@@ -11,7 +11,14 @@ async function stats(req, res) {
 
   try {
     const dados = await estatisticas();
-    res.json(dados);
+    // "com/sem responsável" só existe no banco local — soma aqui, sem
+    // depender de nenhuma consulta a mais no servidor de e-mail
+    const comResponsavel = await prisma.webmailResponsavel.count({ where: { atual: true } });
+    res.json({
+      ...dados,
+      comResponsavel,
+      semResponsavel: Math.max(0, dados.total - comResponsavel),
+    });
   } catch (err) {
     console.error('Erro ao consultar estatísticas do webmail:', err.message);
     res.status(502).json({
@@ -42,6 +49,18 @@ async function accounts(req, res) {
         ).map((r) => r.username)
       : [];
 
+    // filtro "com/sem responsável": precisa da lista COMPLETA de quem já
+    // está vinculado (banco local), não só de quem bate com a busca
+    const vinculoResponsavel = req.query.vinculoResponsavel || '';
+    const usernamesComResponsavel = vinculoResponsavel
+      ? (
+          await prisma.webmailResponsavel.findMany({
+            where: { atual: true },
+            select: { username: true },
+          })
+        ).map((r) => r.username)
+      : [];
+
     const resultado = await listarContas({
       q: termo,
       page: req.query.page || 1,
@@ -53,6 +72,8 @@ async function accounts(req, res) {
       ultimosDias: req.query.ultimosDias || 0,
       maisDeDias: req.query.maisDeDias || 0,
       usernamesResponsavel,
+      vinculoResponsavel,
+      usernamesComResponsavel,
     });
 
     // cruza com o responsável atual (banco local, somente aqui) pelo

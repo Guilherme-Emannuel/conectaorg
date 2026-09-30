@@ -233,6 +233,11 @@ async function listarContas({
   // buscado — o nome do responsável não existe aqui, então quem chama
   // (webmailController) já resolveu essa parte antes de nos passar
   usernamesResponsavel = [],
+  // filtro "com/sem responsável" — usernamesComResponsavel é a lista
+  // COMPLETA de quem tem responsável atual (banco local), resolvida pelo
+  // controller; vinculoResponsavel decide se filtra por dentro ou fora dela
+  vinculoResponsavel = '', // '' | 'com' | 'sem'
+  usernamesComResponsavel = [],
 } = {}) {
   const termo = String(q).trim().slice(0, 100);
   const paginaAtual = Math.max(1, Number(page) || 1);
@@ -258,6 +263,17 @@ async function listarContas({
     const { sql, params: paramsSetorial } = await condicaoSetorial();
     condicoes.push(sql);
     params.push(...paramsSetorial);
+  }
+  if (vinculoResponsavel === 'com') {
+    condicoes.push(
+      usernamesComResponsavel.length
+        ? `m.username IN (${usernamesComResponsavel.map(() => '?').join(',')})`
+        : '1 = 0' // ninguém vinculado ainda
+    );
+    params.push(...usernamesComResponsavel);
+  } else if (vinculoResponsavel === 'sem' && usernamesComResponsavel.length) {
+    condicoes.push(`m.username NOT IN (${usernamesComResponsavel.map(() => '?').join(',')})`);
+    params.push(...usernamesComResponsavel);
   }
   const dias = Number(ultimosDias);
   if (DATA_VALIDA.test(acessoInicio) && DATA_VALIDA.test(acessoFim)) {
