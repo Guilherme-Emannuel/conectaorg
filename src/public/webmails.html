@@ -142,6 +142,23 @@
       return `${valor.toFixed(i === 0 ? 0 : 1)} ${unidades[i]}`;
     }
 
+    // barra de uso: verde quando sobra espaço, vermelho quando está cheio.
+    // O tooltip (passar o mouse) mostra o total usado e o limite exatos.
+    function barraArmazenamentoHtml(usado, limite) {
+      const usadoTxt = formatarBytes(usado);
+      if (!limite) {
+        return `<strong>${esc(usadoTxt)}</strong> <span class="muted">(sem limite)</span>`;
+      }
+      const limiteTxt = formatarBytes(limite);
+      const pct = Math.max(0, Math.min(100, (Number(usado) / Number(limite)) * 100));
+      const matiz = Math.round(120 - (120 * pct) / 100); // 120° = verde, 0° = vermelho
+      const titulo = `${usadoTxt} usados de ${limiteTxt} (${pct.toFixed(1)}%)`;
+      return `
+        <div class="barra-armazenamento" title="${esc(titulo)}">
+          <div class="barra-armazenamento-preenchida" style="width:${pct.toFixed(1)}%;background:hsl(${matiz}, 65%, 45%)"></div>
+        </div>`;
+    }
+
     async function carregarStats() {
       const res = await apiFetch('/api/webmail/stats');
       if (!res || !res.ok) return;
@@ -193,9 +210,6 @@
       const badge = ativo
         ? '<span class="role-badge ativo">Ativado</span>'
         : '<span class="role-badge inativo">Desativado</span>';
-      const armazenamento = `${formatarBytes(conta.quota_usado)} de ${
-        conta.quota_limite ? formatarBytes(conta.quota_limite) : 'sem limite'
-      }`;
       const responsavelHtml = conta.responsavel
         ? `<button class="tel-link" data-ver-responsavel="${esc(conta.username)}"><strong>${esc(conta.responsavel.nome)}</strong></button>`
         : `<button class="btn-sm" data-vincular-responsavel="${esc(conta.username)}">➕ Vincular</button>`;
@@ -216,7 +230,7 @@
         </div>
         <div class="pessoa-card-detalhes">
           ${tileHtml('Último acesso', `<strong>${esc(formatarData(conta.last_login_date))}</strong>`)}
-          ${tileHtml('Armazenamento', `<strong>${esc(armazenamento)}</strong>`)}
+          ${tileHtml('Armazenamento', barraArmazenamentoHtml(conta.quota_usado, conta.quota_limite))}
           ${tileHtml('Criado em', esc(formatarData(conta.created)))}
           ${tileHtml('Alterado em', esc(formatarData(conta.modified)))}
         </div>

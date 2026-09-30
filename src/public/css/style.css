@@ -990,6 +990,24 @@ button.nav-item {
   font-size: 11.5px;
 }
 
+/* barra de uso de armazenamento — cor e preenchimento variam por conta,
+   por isso vêm via style="" inline (calculados por linha, não fixos aqui) */
+.barra-armazenamento {
+  width: 100%;
+  height: 8px;
+  margin-top: 2px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  cursor: default;
+}
+
+.barra-armazenamento-preenchida {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
 .pessoa-resumo {
   display: flex;
   flex-wrap: wrap;
