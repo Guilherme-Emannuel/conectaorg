@@ -88,6 +88,43 @@ Ordem completa, do `git clone` até o app no ar.
 | Login não funciona após o seed | `ADMIN_*` do `.env` diferente do que você está digitando | Confira as variáveis `ADMIN_*` ou rode o seed de novo com os valores certos |
 | Telas **Usuários** / **Webmails** quebram | `EXT_DB_*` / `DB_EMAILS_*` ainda hipotéticos | Preencha esses blocos no `.env` com um usuário de banco somente-leitura |
 
+## Deploy em produção (Docker)
+
+1. No servidor de produção, instale o Docker e o plugin Docker Compose.
+2. Clone o repositório e entre na pasta (igual ao passo 1 de "Como rodar").
+3. Crie o `.env` **diretamente no servidor** (nunca vem do git) com os valores
+   reais de produção: `DATABASE_URL` (apontando para o banco de produção do
+   ConectaOrg), `EXT_DB_*` / `DB_EMAILS_*` (usuários **somente leitura** dos
+   bancos externos), `JWT_SECRET` novo e forte, `ADMIN_*` reais.
+4. Se você tem o organograma real, copie o arquivo (por fora do git — scp,
+   pendrive etc.) para `data/organograma.json` na pasta do projeto no
+   servidor. Essa pasta é montada como volume, então nunca entra na imagem.
+5. Construa a imagem:
+   ```bash
+   docker compose build
+   ```
+6. Aplique as migrations (comando de produção, não interativo):
+   ```bash
+   docker compose run --rm app npx prisma migrate deploy
+   ```
+7. Crie o admin inicial (só na primeira vez):
+   ```bash
+   docker compose run --rm app npm run seed
+   ```
+8. Importe o organograma real (se o passo 4 foi feito):
+   ```bash
+   docker compose run --rm app npm run import:organograma
+   ```
+9. Suba o app em segundo plano:
+   ```bash
+   docker compose up -d
+   ```
+10. Acompanhe os logs: `docker compose logs -f app`.
+
+> Atualizar o código depois: `git pull`, `docker compose build`,
+> `docker compose run --rm app npx prisma migrate deploy` (se houver
+> migrations novas) e `docker compose up -d` de novo.
+
 ## Roadmap
 
 - [x] Fase 1 — Fundação (Express, Prisma, git, proteção de segredos)

@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log*
+
+# Segredos e dados reais — nunca entram na imagem (ficam só no volume/host)
+.env
+.env.local
+.env.*.local
+data/organograma.json
+
+backup
+*.sql
+*.sql.gz
+
+.git
+.gitignore
+README.md
+.claude

@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    volumes:
+      # organograma.json real fica só no host, nunca dentro da imagem
+      - ./data:/app/data
