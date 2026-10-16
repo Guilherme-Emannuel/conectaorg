@@ -10,6 +10,7 @@ const {
   identificarColunas,
   buscarPessoaPorMatricula,
 } = require('../lib/externalDb');
+const emailsDb = require('../lib/emailsDb');
 
 // GET /api/webmail/responsavel/buscar-pessoas?q=&page=N — pessoas do banco
 // de RH (somente leitura) pra escolher quem vincular. Só os campos usados
@@ -44,6 +45,17 @@ async function buscarPessoas(req, res) {
       subdivisaoNome: id.subdivisao ? linha[id.subdivisao] : null,
       unidadeNome: id.unidade ? linha[id.unidade] : null,
     }));
+
+    // cruza com o banco de e-mails pelo NOME (leitura apenas), pra quem
+    // for preencher um webmail já cadastrado a partir do nome escolhido
+    if (emailsDb.configurado()) {
+      await Promise.all(
+        rows.map(async (linha) => {
+          const encontrado = await emailsDb.buscarPorNome(linha.nome);
+          linha.webmail = encontrado ? encontrado.username : null;
+        })
+      );
+    }
 
     res.json({ ...resultado, rows });
   } catch (err) {

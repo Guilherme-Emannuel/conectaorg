@@ -34,7 +34,10 @@
           </div>
 
           <div class="card">
-            <h3>Administradores</h3>
+            <div class="card-titulo-acao">
+              <h3>Administradores</h3>
+              <button type="button" class="btn-primary" id="btn-criar-usuario">+ Criar usuário</button>
+            </div>
             <p class="muted">Contas com acesso total: editam o organograma e gerenciam o sistema.</p>
             <div class="table-wrap">
               <table class="data-table">
@@ -151,6 +154,136 @@
       const excluir = event.target.closest('[data-excluir]');
       if (excluir) abrirExclusao(Number(excluir.dataset.excluir));
     });
+
+    document.getElementById('btn-criar-usuario').addEventListener('click', abrirCriacao);
+
+    function abrirCriacao() {
+      let matriculaSelecionada = null;
+      let buscaNomeTimer = null;
+
+      overlay.innerHTML = `
+        <div class="modal">
+          <h3>Criar usuário</h3>
+          <div class="field autocomplete-wrap">
+            <label for="criar-nome">Nome (vinculado a uma pessoa da prefeitura)</label>
+            <input id="criar-nome" placeholder="Digite pra buscar no RH..." autocomplete="off">
+            <div class="autocomplete-lista" id="criar-nome-lista" style="display:none"></div>
+          </div>
+          <div class="field">
+            <label for="criar-email">E-mail</label>
+            <input type="email" id="criar-email" placeholder="nome@exemplo.com">
+          </div>
+          <div class="field">
+            <label for="criar-role">Papel</label>
+            <select id="criar-role">
+              <option value="ADMIN">Administrador</option>
+              <option value="AGENT" selected>Visualizador</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="criar-senha">Senha</label>
+            <input type="password" id="criar-senha" placeholder="Mínimo de 6 caracteres">
+          </div>
+          <div class="field">
+            <label for="criar-senha-confirmar">Confirmar senha</label>
+            <input type="password" id="criar-senha-confirmar" placeholder="Repita a senha">
+          </div>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="criar-cancelar">Cancelar</button>
+            <button type="button" class="btn-primary" id="criar-salvar">Criar</button>
+          </div>
+        </div>`;
+
+      const nomeInput = document.getElementById('criar-nome');
+      const listaEl = document.getElementById('criar-nome-lista');
+
+      async function buscarPessoas(q) {
+        if (!q) {
+          listaEl.style.display = 'none';
+          listaEl.innerHTML = '';
+          return;
+        }
+        const res = await apiFetch(`/api/external-users/buscar-pessoas?q=${encodeURIComponent(q)}&page=1`);
+        if (!res || !res.ok) {
+          listaEl.innerHTML = '<div class="autocomplete-item muted">Erro ao buscar no RH.</div>';
+          listaEl.style.display = 'block';
+          return;
+        }
+        const dados = await res.json();
+        listaEl.innerHTML =
+          dados.rows
+            .slice(0, 8)
+            .map(
+              (p) => `
+          <div class="autocomplete-item" data-matricula="${esc(p.matricula)}" data-nome="${esc(p.nome)}" data-webmail="${esc(p.webmail || '')}">
+            <strong>${esc(p.nome)}</strong>
+            <div class="autocomplete-sub">${[p.divisaoNome, p.subdivisaoNome, p.unidadeNome].filter(Boolean).map(esc).join(' • ')}</div>
+            <div class="autocomplete-sub">${p.webmail ? esc(p.webmail) : 'Sem webmail cadastrado'}</div>
+          </div>`
+            )
+            .join('') || '<div class="autocomplete-item muted">Nenhuma pessoa encontrada.</div>';
+        listaEl.style.display = 'block';
+
+        listaEl.querySelectorAll('[data-matricula]').forEach((item) => {
+          item.onclick = () => {
+            nomeInput.value = item.dataset.nome;
+            matriculaSelecionada = item.dataset.matricula;
+            if (item.dataset.webmail) {
+              document.getElementById('criar-email').value = item.dataset.webmail;
+            }
+            listaEl.style.display = 'none';
+          };
+        });
+      }
+
+      nomeInput.addEventListener('input', (e) => {
+        matriculaSelecionada = null; // mudou o texto, a vinculação anterior não vale mais
+        clearTimeout(buscaNomeTimer);
+        buscaNomeTimer = setTimeout(() => buscarPessoas(e.target.value.trim()), 350);
+      });
+
+      document.addEventListener('click', function fecharListaFora(e) {
+        if (!overlay.contains(e.target)) return;
+        if (e.target === nomeInput || listaEl.contains(e.target)) return;
+        listaEl.style.display = 'none';
+      });
+
+      document.getElementById('criar-cancelar').onclick = fecharModal;
+      document.getElementById('criar-salvar').onclick = async () => {
+        const senha = document.getElementById('criar-senha').value;
+        const senhaConfirmar = document.getElementById('criar-senha-confirmar').value;
+
+        if (senha !== senhaConfirmar) {
+          alert('As senhas não coincidem.');
+          return;
+        }
+
+        const payload = {
+          name: nomeInput.value,
+          email: document.getElementById('criar-email').value,
+          role: document.getElementById('criar-role').value,
+          password: senha,
+          matricula: matriculaSelecionada,
+        };
+
+        const res = await apiFetch('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+
+        if (!res || !res.ok) {
+          alert(res ? (await res.json()).error : 'Erro ao criar usuário.');
+          return;
+        }
+
+        const criado = await res.json();
+        fecharModal();
+        carregarUsuarios();
+        mostrarToast(`"${criado.name}" foi criado com sucesso`);
+      };
+
+      overlay.classList.add('open');
+    }
 
     function fecharModal() {
       overlay.classList.remove('open');

@@ -46,7 +46,7 @@ async function me(req, res) {
 
 // POST /api/auth/register — cria usuário (somente ADMIN)
 async function register(req, res) {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, matricula } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Informe nome, e-mail e senha.' });
@@ -67,8 +67,9 @@ async function register(req, res) {
       email,
       password: hash,
       role: role === 'ADMIN' ? 'ADMIN' : 'AGENT',
+      matricula: matricula || null,
     },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, email: true, role: true, matricula: true },
   });
 
   res.status(201).json(user);

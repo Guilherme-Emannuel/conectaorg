@@ -410,6 +410,50 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 8px;
 }
 
+.card-titulo-acao {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-titulo-acao h3 {
+  margin-bottom: 0;
+}
+
+/* ---- autocomplete de pessoa do RH (campo Nome ao criar usuário) ---- */
+.autocomplete-wrap {
+  position: relative;
+}
+
+.autocomplete-lista {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 30;
+}
+
+.autocomplete-item {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+.autocomplete-item:hover {
+  background: var(--surface-tint);
+}
+
+.autocomplete-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
 .card .muted {
   color: var(--text-muted);
   font-size: 13.5px;

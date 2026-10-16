@@ -15,6 +15,10 @@ model User {
   email     String   @unique
   password  String // hash bcrypt, nunca a senha em texto puro
   role      Role     @default(AGENT)
+  // liga a conta a uma pessoa do RH externo (somente leitura), pra
+  // garantir que todo login corresponde a um servidor real — opcional
+  // pra não travar contas antigas/sem correspondência
+  matricula String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
